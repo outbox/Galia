@@ -1,10 +1,10 @@
 #include <boost/python.hpp>
-#include <XnOpenNI.h>
+#include "openni.h"
 
 class Nui {
 public:
   Nui() {
-    
+    create_openni_thread(false, 0);
   }
 };
 
