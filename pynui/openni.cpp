@@ -2,14 +2,12 @@
 #include "nui_data.h"
 #include <XnOpenNI.h>
 #include <XnCodecIDs.h>
-#include <boost/interprocess/ipc/message_queue.hpp>
 #include <boost/thread.hpp>
 #include <string>
 #include <signal.h>
 
-using namespace boost::interprocess;
-
 static nui_data data;
+static boost::mutex data_mutex;
 static XnContext* context;
 static XnNodeHandle userGenerator;
 static XnNodeHandle depthGenerator;
@@ -108,13 +106,11 @@ void sighandler(int signum) {
 }
 
 void openni_loop(bool record, std::string replay) {
-//  signal(SIGSEGV, sighandler);
-//  signal(SIGKILL, sighandler);
-//  signal(SIGTERM, sighandler);
+  signal(SIGSEGV, sighandler);
+  signal(SIGKILL, sighandler);
+  signal(SIGTERM, sighandler);
 
-  printf("OpenNI process started.\n");
-
-  message_queue mq(open_or_create, "kinect_queue", 1, sizeof(nui_data));
+  printf("OpenNI thread started.\n");
   
   check_status(xnInit(&context), "Init");
   if(replay.length()) {
@@ -163,56 +159,58 @@ void openni_loop(bool record, std::string replay) {
   if(record) start_capture(recorder, depthGenerator);
 
   while (true) {
-    // exit if parent dies
-    if (getppid() == 1) exit(0);
-        
     xnWaitAnyUpdateAll(context);
+    {
+      boost::lock_guard<boost::mutex> lock(data_mutex);
 
-    XnOutputMetaData outputData;
-    XnMapMetaData mapData;
-    mapData.pOutput = &outputData;
-    mapData.PixelFormat = XN_PIXEL_FORMAT_GRAYSCALE_16_BIT;
-    XnSceneMetaData smd;
-    smd.pMap = &mapData;
-    xnGetUserPixels(userGenerator, 0, &smd);
-    memcpy(data.label_map, smd.pData, data.width*data.height*sizeof(XnLabel));
-        
-    XnDepthMetaData depthData;
-    depthData.pMap = &mapData;
-    xnGetDepthMetaData(depthGenerator, &depthData);
-    const XnDepthPixel* source = depthData.pData;
-    XnPoint3D* target = data.depth_map;
-        
-    for (unsigned int y=0; y<data.height; y++) {
-      for (unsigned int x=0; x < data.width; ++x, ++target, ++source) {
-        target->X = x;
-        target->Y = y;
-        target->Z = *source;
+      XnOutputMetaData outputData;
+      XnMapMetaData mapData;
+      mapData.pOutput = &outputData;
+      mapData.PixelFormat = XN_PIXEL_FORMAT_GRAYSCALE_16_BIT;
+      XnSceneMetaData smd;
+      smd.pMap = &mapData;
+      xnGetUserPixels(userGenerator, 0, &smd);
+      memcpy(data.label_map, smd.pData, data.width*data.height*sizeof(XnLabel));
+          
+      XnDepthMetaData depthData;
+      depthData.pMap = &mapData;
+      xnGetDepthMetaData(depthGenerator, &depthData);
+      const XnDepthPixel* source = depthData.pData;
+      XnPoint3D* target = data.depth_map;
+          
+      for (unsigned int y=0; y<data.height; y++) {
+        for (unsigned int x=0; x < data.width; ++x, ++target, ++source) {
+          target->X = x;
+          target->Y = y;
+          target->Z = *source;
+        }
       }
-    }
-        
-    xnConvertProjectiveToRealWorld(depthGenerator, data.width*data.height, data.depth_map, data.depth_map);
-        
-    for (int i=0; i<max_users; ++i) {
-      data.users[i] = false;
-    }
-        
-    XnUserID users[15];
-    XnUInt16 user_count = 15;
-    xnGetUsers(userGenerator, users, &user_count);
-    for (int i = 0; i<user_count; ++i) {
-      XnUserID user = users[i];
-      data.users[user] = true;
-            
-      for (int j = 1; j < joint_count; ++j) {
-        xnGetSkeletonJoint(userGenerator, user, (XnSkeletonJoint)j, &data.joints[user][j]);
+          
+      xnConvertProjectiveToRealWorld(depthGenerator, data.width*data.height, data.depth_map, data.depth_map);
+          
+      for (int i=0; i<max_users; ++i) {
+        data.users[i] = false;
       }
-    }
-        
-    if(mq.try_send(&data, sizeof(nui_data), 0)) {
-      data.clear_events();
+          
+      XnUserID users[15];
+      XnUInt16 user_count = 15;
+      xnGetUsers(userGenerator, users, &user_count);
+      for (int i = 0; i<user_count; ++i) {
+        XnUserID user = users[i];
+        data.users[user] = true;
+              
+        for (int j = 1; j < joint_count; ++j) {
+          xnGetSkeletonJoint(userGenerator, user, (XnSkeletonJoint)j, &data.joints[user][j]);
+        }
+      }
     }
   }
+}
+
+void get_nui_data(nui_data* data) {
+  boost::lock_guard<boost::mutex> lock(data_mutex);
+  *data = ::data;
+  ::data.clear_events();
 }
 
 struct callable{

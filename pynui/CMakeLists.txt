@@ -32,5 +32,5 @@ if(CMAKE_COMPILER_IS_GNUCXX)
   add_definitions("-Wall -Wno-attributes")
 endif()
 
-add_executable(test test.cpp)
-target_link_libraries(test pynui)
+add_executable(pynui_test test.cpp)
+target_link_libraries(pynui_test pynui)
