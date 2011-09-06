@@ -3,7 +3,7 @@ import os
 from pprint import pprint
 
 sys.path.append("./build/pynui")
-from pynui import Nui
+from pynui import *
 
 from panda3d.core import *
 from direct.showbase.ShowBase import ShowBase
@@ -11,7 +11,7 @@ from direct.task import Task
 
 image_path = "/Users/max/Pictures/iPhoto Library/Originals/2011/Parque Lecocq/"
  
-class MyApp(ShowBase):
+class App(ShowBase):
   def __init__(self):
     ShowBase.__init__(self)
 
@@ -30,20 +30,30 @@ class MyApp(ShowBase):
     
     maker = CardMaker("")
     maker.setFrameFullscreenQuad()
-    card = NodePath(maker.generate())
-    card.reparentTo(render)
+    self.card = NodePath(maker.generate())
+    self.card.reparentTo(render)
 
     texture = loader.loadTexture(files[0])
-    card.setTexture(texture)
-
-    def printusers():
-      pprint(self.nui.users)
-    self.accept("u", printusers)
+    self.card.setTexture(texture)
+    
+    def printu(): pprint(self.nui.users)
+    self.accept("u", printu)
+    
+    self.previousHand = None
 
   def nuiTask(self, task):
     self.nui.update()
-    users = self.nui.users
+    if len(self.nui.users) > 0:
+      self.handleHand(self.nui.users.values()[0])
     return Task.cont
  
-app = MyApp()
+  def handleHand(self, skel):
+    current = Vec3(skel.right.hand.position.x, 0, skel.right.hand.position.y)
+    dist = skel.right.shoulder.position.z - skel.right.hand.position.z
+    if self.previousHand and dist > 350:
+      delta = current - self.previousHand
+      self.card.setPos(self.card.getPos() + delta/100)
+    self.previousHand = current
+
+app = App()
 app.run()

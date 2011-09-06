@@ -1,0 +1,43 @@
+Install the following:
+
+* OpenNI, NITE and SensorKinect
+
+Download latest x86 unstable version from:
+  http://openni.org/downloadfiles/opennimodules/openni-binaries/20-latest-unstable
+  http://openni.org/downloadfiles/opennimodules/openni-compliant-middleware-binaries/33-latest-unstable
+  https://github.com/avin2/SensorKinect/tree/unstable/Bin  
+
+Unpack each and run: 
+  sudo ./install.sh
+
+* Panda3D
+
+Download and install from: 
+  http://www.panda3d.org/download.php?sdk&version=devel
+
+* Boost
+
+We use boost::python and boost::thread. boost::python must be linked to the same version of Python used by Panda3D (2.5 in OSX). To install in OSX with brew first run:
+   brew edit boost
+
+And apply this diff:
+
+--- a/Library/Formula/boost.rb
++++ b/Library/Formula/boost.rb
+@@ -65,7 +65,7 @@ class Boost < Formula
+     args << "address-model=32_64" << "architecture=x86" << "pch=off" if ARGV.include? "--universal"
+ 
+     # we specify libdir too because the script is apparently broken
+-    system "./bootstrap.sh", "--prefix=#{prefix}", "--libdir=#{lib}"
++    system "./bootstrap.sh", "--prefix=#{prefix}", "--libdir=#{lib}", "--with-python-version=2.5", "--with-python-root=/System/Library/Frameworks/Python.framework/Versions/2.5"
+     system "./bjam", *args
+   end
+ end
+
+Then run:
+  brew install boost --universal
+
+
+To test the app connect a Kinect and run:
+  ppython main.py
+  
