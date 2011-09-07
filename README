@@ -1,4 +1,4 @@
-Install the following:
+1. Install the following:
 
 * OpenNI, NITE and SensorKinect
 
@@ -37,7 +37,18 @@ And apply this diff:
 Then run:
   brew install boost --universal
 
+* Cmake
 
-To test the app connect a Kinect and run:
+  With Homebrew: brew install cmake
+
+2. Compile the python extension
+
+  mkdir build
+  cd build
+  cmake ..
+  make
+
+3. Connect Kinect and run:
+
   ppython main.py
   
