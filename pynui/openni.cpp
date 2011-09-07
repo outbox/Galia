@@ -76,10 +76,12 @@ void XN_CALLBACK_TYPE calibration_ended(XnNodeHandle generator, XnUserID user, X
   add_event(nui_event::calibration_end, user);
 }
 
+class openni_error {};
+
 void check_status(XnStatus status, const char* what) {
   if (status != XN_STATUS_OK) {
     printf("%s failed: %s\n", what, xnGetStatusString(status));
-    exit(1);
+    throw openni_error();
   }
 }
 
@@ -216,7 +218,17 @@ void get_nui_data(nui_data* data) {
 struct callable{
   bool record;
   std::string replay;
-  void operator()() { openni_loop(record, replay); };
+  void operator()() { 
+    bool retry = true;
+    while(retry) {
+      retry = false;
+      try {
+        openni_loop(record, replay);
+      } catch(openni_error) {
+        retry = true;
+      }
+    }
+  };
 };
 void create_openni_thread(bool record, const char* replay) {
   callable c = {record, replay?replay:""};
