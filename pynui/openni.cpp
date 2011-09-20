@@ -6,7 +6,7 @@
 #include <string>
 #include <signal.h>
 
-static nui_data data;
+static nui_data data, data_back;
 static boost::mutex data_mutex;
 static XnContext* context;
 static XnNodeHandle userGenerator;
@@ -89,14 +89,14 @@ void start_capture(XnNodeHandle recorder, XnNodeHandle generator) {
   char recordFile[256] = {0};
   time_t rawtime;
   struct tm *timeinfo;
-
+  
   time(&rawtime);
   timeinfo = localtime(&rawtime);
   XnUInt32 size;
   xnOSStrFormat(recordFile, sizeof(recordFile)-1, &size,
-		"record_%d_%02d_%02d[%02d_%02d_%02d].oni",
+                "record_%d_%02d_%02d[%02d_%02d_%02d].oni",
                 timeinfo->tm_year + 1900, timeinfo->tm_mon + 1, timeinfo->tm_mday, timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
-
+  
   xnSetRecorderDestination(recorder, XN_RECORD_MEDIUM_FILE, recordFile);
   xnAddNodeToRecording(recorder, generator, XN_CODEC_16Z_EMB_TABLES);
 }
@@ -111,7 +111,7 @@ void openni_loop(bool record, std::string replay) {
   signal(SIGSEGV, sighandler);
   signal(SIGKILL, sighandler);
   signal(SIGTERM, sighandler);
-
+  
   printf("OpenNI thread started.\n");
   
   check_status(xnInit(&context), "Init");
@@ -142,7 +142,7 @@ void openni_loop(bool record, std::string replay) {
   xnRegisterCalibrationCallbacks(userGenerator, ::calibration_started, ::calibration_ended, 0, &calibration_cb);
   xnRegisterToPoseDetected(userGenerator, ::pose_detected, 0, &pose_detected_cb);
   xnRegisterToPoseDetected(userGenerator, ::out_of_pose, 0, &out_of_pose_cb);
-
+  
   XnOutputMetaData outputData;
   XnMapMetaData mapData;
   mapData.pOutput = &outputData;
@@ -152,59 +152,60 @@ void openni_loop(bool record, std::string replay) {
   xnGetDepthMetaData(depthGenerator, &depthData);
   data.width = depthData.pMap->Res.X;
   data.height = depthData.pMap->Res.Y;
-    
+  
   if (data.width*data.height > sizeof(data.depth_map) / sizeof(XnPoint3D)) {
     printf("Depth map is too big\n");
     exit(1);
   }
   
   if(record) start_capture(recorder, depthGenerator);
-
+  
   while (true) {
     xnWaitAnyUpdateAll(context);
+    
+    XnOutputMetaData outputData;
+    XnMapMetaData mapData;
+    mapData.pOutput = &outputData;
+    mapData.PixelFormat = XN_PIXEL_FORMAT_GRAYSCALE_16_BIT;
+    XnSceneMetaData smd;
+    smd.pMap = &mapData;
+    xnGetUserPixels(userGenerator, 0, &smd);
+    memcpy(data_back.label_map, smd.pData, data_back.width*data_back.height*sizeof(XnLabel));
+    
+    XnDepthMetaData depthData;
+    depthData.pMap = &mapData;
+    xnGetDepthMetaData(depthGenerator, &depthData);
+    const XnDepthPixel* source = depthData.pData;
+    XnPoint3D* target = data_back.depth_map;
+    
+    for (unsigned int y=0; y<data_back.height; y++) {
+      for (unsigned int x=0; x < data_back.width; ++x, ++target, ++source) {
+        target->X = x;
+        target->Y = y;
+        target->Z = *source;
+      }
+    }
+    
+    xnConvertProjectiveToRealWorld(depthGenerator, data_back.width*data_back.height, data_back.depth_map, data_back.depth_map);
+    
+    for (int i=0; i<max_users; ++i) {
+      data_back.users[i] = false;
+    }
+    
+    XnUserID users[15];
+    XnUInt16 user_count = 15;
+    xnGetUsers(userGenerator, users, &user_count);
+    for (int i = 0; i<user_count; ++i) {
+      XnUserID user = users[i];
+      data_back.users[user] = true;
+      for (int j = 1; j < joint_count; ++j) {
+        xnGetSkeletonJoint(userGenerator, user, (XnSkeletonJoint)j, &data_back.joints[user][j]);
+      }
+    }
+    
     {
       boost::lock_guard<boost::mutex> lock(data_mutex);
-
-      XnOutputMetaData outputData;
-      XnMapMetaData mapData;
-      mapData.pOutput = &outputData;
-      mapData.PixelFormat = XN_PIXEL_FORMAT_GRAYSCALE_16_BIT;
-      XnSceneMetaData smd;
-      smd.pMap = &mapData;
-      xnGetUserPixels(userGenerator, 0, &smd);
-      memcpy(data.label_map, smd.pData, data.width*data.height*sizeof(XnLabel));
-          
-      XnDepthMetaData depthData;
-      depthData.pMap = &mapData;
-      xnGetDepthMetaData(depthGenerator, &depthData);
-      const XnDepthPixel* source = depthData.pData;
-      XnPoint3D* target = data.depth_map;
-          
-      for (unsigned int y=0; y<data.height; y++) {
-        for (unsigned int x=0; x < data.width; ++x, ++target, ++source) {
-          target->X = x;
-          target->Y = y;
-          target->Z = *source;
-        }
-      }
-          
-      xnConvertProjectiveToRealWorld(depthGenerator, data.width*data.height, data.depth_map, data.depth_map);
-          
-      for (int i=0; i<max_users; ++i) {
-        data.users[i] = false;
-      }
-          
-      XnUserID users[15];
-      XnUInt16 user_count = 15;
-      xnGetUsers(userGenerator, users, &user_count);
-      for (int i = 0; i<user_count; ++i) {
-        XnUserID user = users[i];
-        data.users[user] = true;
-              
-        for (int j = 1; j < joint_count; ++j) {
-          xnGetSkeletonJoint(userGenerator, user, (XnSkeletonJoint)j, &data.joints[user][j]);
-        }
-      }
+      memcpy(&data, &data_back, sizeof(nui_data));
     }
   }
 }

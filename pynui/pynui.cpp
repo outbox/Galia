@@ -45,68 +45,65 @@ struct Nui {
     for(int i=0;i<max_users;++i) {
       if(data.users[i]) {
         Skeleton skel;
-	skel.head = joint(data, i, XN_SKEL_HEAD);
-	skel.neck = joint(data, i, XN_SKEL_NECK);
-	skel.torso = joint(data, i, XN_SKEL_TORSO);
-
-	skel.right.shoulder = joint(data, i, XN_SKEL_RIGHT_SHOULDER);
-	skel.right.elbow = joint(data, i, XN_SKEL_RIGHT_ELBOW);
-	skel.right.hand = joint(data, i, XN_SKEL_RIGHT_HAND);
-	skel.right.hip = joint(data, i, XN_SKEL_RIGHT_HIP);
-	skel.right.knee = joint(data, i, XN_SKEL_RIGHT_KNEE);
-	skel.right.foot = joint(data, i, XN_SKEL_RIGHT_FOOT);
-
-	skel.left.shoulder = joint(data, i, XN_SKEL_LEFT_SHOULDER);
-	skel.left.elbow = joint(data, i, XN_SKEL_LEFT_ELBOW);
-	skel.left.hand = joint(data, i, XN_SKEL_LEFT_HAND);
-	skel.left.hip = joint(data, i, XN_SKEL_LEFT_HIP);
-	skel.left.knee = joint(data, i, XN_SKEL_LEFT_KNEE);
-	skel.left.foot = joint(data, i, XN_SKEL_LEFT_FOOT);
-
+        joint(skel.head, i, XN_SKEL_HEAD);
+        joint(skel.neck, i, XN_SKEL_NECK);
+        joint(skel.torso, i, XN_SKEL_TORSO);
+        
+        joint(skel.right.shoulder, i, XN_SKEL_RIGHT_SHOULDER);
+        joint(skel.right.elbow, i, XN_SKEL_RIGHT_ELBOW);
+        joint(skel.right.hand, i, XN_SKEL_RIGHT_HAND);
+        joint(skel.right.hip, i, XN_SKEL_RIGHT_HIP);
+        joint(skel.right.knee, i, XN_SKEL_RIGHT_KNEE);
+        joint(skel.right.foot, i, XN_SKEL_RIGHT_FOOT);
+        
+        joint(skel.left.shoulder, i, XN_SKEL_LEFT_SHOULDER);
+        joint(skel.left.elbow, i, XN_SKEL_LEFT_ELBOW);
+        joint(skel.left.hand, i, XN_SKEL_LEFT_HAND);
+        joint(skel.left.hip, i, XN_SKEL_LEFT_HIP);
+        joint(skel.left.knee, i, XN_SKEL_LEFT_KNEE);
+        joint(skel.left.foot, i, XN_SKEL_LEFT_FOOT);
+        
         users[i] = skel;
       }
     }
   }
-
-  Joint joint(nui_data data, int user, int joint) {
+  
+  void joint(Joint& transform, int user, int joint) {
     XnVector3D p = data.joints[user][joint].position.position;
     float* o = data.joints[user][joint].orientation.orientation.elements;
-    Joint transform = { 
-      vec3(p.X, p.Y, p.Z), 
-      mat3(o[0], o[1], o[2], o[3], o[4], o[5], o[6], o[7], o[8])
-    };
-    return transform;
+    transform.position = vec3(p.X/1000, p.Y/1000, p.Z/1000);
+    transform.orientation = mat3(o[0], o[1], o[2], o[3], o[4], o[5], o[6], o[7], o[8]);
   }
 };
 
 BOOST_PYTHON_MODULE(pynui)
 {
   using namespace boost::python;
-
+  
   class_<Nui>("Nui")
-    .def("update", &Nui::update)
-    .def_readonly("users", &Nui::users)
-    ;
+  .def("update", &Nui::update)
+  .def_readonly("users", &Nui::users)
+  ;
   
   class_<Joint>("Joint")
-    .def_readonly("position", &Joint::position)
-    .def_readonly("orientation", &Joint::orientation)
-    .def("__repr__", &Joint::repr)
-    ;
-
+  .def_readonly("position", &Joint::position)
+  .def_readonly("orientation", &Joint::orientation)
+  .def("__repr__", &Joint::repr)
+  ;
+  
   class_<Skeleton>("Skeleton")
-    .def_readonly("head", &Skeleton::head)
-    .def_readonly("neck", &Skeleton::neck)
-    .def_readonly("torso", &Skeleton::torso)
-    .def_readonly("right", &Skeleton::right)
-    .def_readonly("left", &Skeleton::left)
-    ;
+  .def_readonly("head", &Skeleton::head)
+  .def_readonly("neck", &Skeleton::neck)
+  .def_readonly("torso", &Skeleton::torso)
+  .def_readonly("right", &Skeleton::right)
+  .def_readonly("left", &Skeleton::left)
+  ;
   class_<SkeletonSide>("SkeletonSide")
-    .def_readonly("shoulder", &SkeletonSide::shoulder)
-    .def_readonly("elbow", &SkeletonSide::elbow)
-    .def_readonly("hand", &SkeletonSide::hand)
-    .def_readonly("hip", &SkeletonSide::hip)
-    .def_readonly("knee", &SkeletonSide::knee)
-    .def_readonly("foot", &SkeletonSide::foot)
-    ;
+  .def_readonly("shoulder", &SkeletonSide::shoulder)
+  .def_readonly("elbow", &SkeletonSide::elbow)
+  .def_readonly("hand", &SkeletonSide::hand)
+  .def_readonly("hip", &SkeletonSide::hip)
+  .def_readonly("knee", &SkeletonSide::knee)
+  .def_readonly("foot", &SkeletonSide::foot)
+  ;
 }
