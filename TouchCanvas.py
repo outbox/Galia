@@ -10,19 +10,24 @@ class Touch(object):
   def __init__(self, user, side, pos):
     self.positions = []
     self.smooth_positions = []
+    self.speeds = []
+    self.smooth_speeds = []
     self.time = []
     self.append(pos)
     self.user = user
     self.side = side
-    self.smooth_factor = 0.5
+    self.smooth_factor = 0.6
+
+  def smooth(self, old_value, new_value):
+    return new_value * (1 - self.smooth_factor) + old_value * self.smooth_factor
 
   def append(self, pos):
+    first = len(self.positions) == 0
     self.positions.append(pos)
     self.time.append(clock())
-    if len(self.smooth_positions) > 0:
-      self.smooth_positions.append(pos * (1 - self.smooth_factor) + self.smooth_positions[-1] * self.smooth_factor)
-    else:
-      self.smooth_positions.append(pos)
+    self.smooth_positions.append(pos if first else self.smooth(self.smooth_positions[-1], pos))
+    self.speeds.append(Vec2() if first else (self.positions[-1] - self.positions[-2]) / (self.time[-1] - self.time[-2]))
+    self.smooth_speeds.append(Vec2() if first else self.smooth(self.speeds[-2], self.speeds[-1]))
 
 class TouchCanvas:
   def __init__(self):
@@ -30,7 +35,7 @@ class TouchCanvas:
     self.touch_move = None
     self.touch_up = None
     self.touches = []
-    self.size = Vec2(0.8, 0.8*9/16)
+    self.size = Vec2(0.4, 0.4*9/16)
     self.origin = Vec3(0, 0, -0.35)
 
   def update(self, users):
@@ -49,7 +54,7 @@ class TouchCanvas:
     if canvas_pos.z > 0:
       if existing_touch:
         self.touches.remove(existing_touch)
-        self.touch_up and self.touch_up(existing_touch)        
+        self.touch_up and self.touch_up(existing_touch)
     else:
       if existing_touch:
         existing_touch.append(normalized_pos)
