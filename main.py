@@ -53,10 +53,13 @@ class App(ShowBase):
     maker = CardMaker("")
     frameRatio = wp.getXSize() / wp.getYSize()
     left = 0
-    files = sorted([App.image_path + f for f in os.listdir(App.image_path)])[0:3]
+    files = [App.image_path + f for f in os.listdir(App.image_path)][0:10]
     print "Loading", len(files), "files..."
     for file in files:
-      texture = loader.loadTexture(file)
+      try:
+        texture = loader.loadTexture(file)
+      except:
+        continue
       texture.setMinfilter(Texture.FTLinearMipmapLinear)
       texture.setAnisotropicDegree(4)
       textureRatio = texture.getOrigFileXSize() * 1.0 / texture.getOrigFileYSize()
@@ -103,6 +106,9 @@ class App(ShowBase):
       delta = touch.smooth_positions[-1].x - touch.smooth_positions[-2].x
       self.picsNode.setPos(self.picsNode.getPos().x + delta, 0, 0)
 
+  def index_for_position(self, pos):
+    return floor(-pos / App.pic_stride + 0.5)
+    
   def touch_up(self, touch):
     if touch == self.current_touch:
       self.current_touch = self.touch_canvas.touches[0] if self.touch_canvas.touches else None
@@ -110,11 +116,15 @@ class App(ShowBase):
       task = PythonTask(self.interpolateTask)
       start = self.picsNode.getPos().x
       speed = touch.smooth_speeds[-1].x
-      target_index = floor(-start / App.pic_stride + 0.5)
-      if fabs(speed) > 1.5: target_index += 1 if speed < 0 else -1
+      target_index = self.index_for_position(start)
+      delta = touch.positions[-1].x - touch.positions[0].x
+      if fabs(speed) > 1.5 and target_index == self.index_for_position(start - delta):
+        target_index += 1 if speed < 0 else -1
+      speed = min(speed, 1.5)
       target_index = max(0, min(self.picsNode.getNumChildren()-1, target_index))
       target = -target_index * App.pic_stride
-      self.taskMgr.add(task, "interpolateTask", 0, [task, CubicInterpolator(start, target, speed), 0.5])
+      interp = CubicInterpolator(start, target, speed)
+      self.taskMgr.add(task, "interpolateTask", 0, [task, interp, 0.5])
 
 if __name__ == '__main__':
   app = App()

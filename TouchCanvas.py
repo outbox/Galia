@@ -35,7 +35,7 @@ class TouchCanvas:
     self.touch_move = None
     self.touch_up = None
     self.touches = []
-    self.size = Vec2(0.4, 0.4*9/16)
+    self.size = Vec2(0.25, 0.25*9/16)
     self.origin = Vec3(0, 0, -0.35)
 
   def update(self, users):
