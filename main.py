@@ -13,29 +13,32 @@ from direct.interval.MetaInterval import Sequence
 from direct.showbase.ShowBase import ShowBase
 from direct.task import Task
 
-class Bezier:
-  def __init__(self, p1, t1, p2, t2):
-    self.p = [p1, p1 + t1, p2 + t2, p2]
-
-  def __getitem__(self, t):
-    _t = 1 - t
-    _t2 = _t*_t
-    _t3 = _t2*_t
+class CubicInterpolator:
+  def __init__(self, p0, p1, v0):
+    self.a = -2*p1 + v0 + 2*p0
+    self.b = p1 - self.a - v0 - p0
+    self.c = v0
+    self.d = p0
+    
+  def __call__(self, t):
     t2 = t*t
     t3 = t2*t
-    return self.p[0]*_t3 + self.p[1]*(3*_t2*t) + self.p[2]*(3*_t*t2) + self.p[3]*t3
+    return self.a * t3 + self.b * t2 + self.c * t + self.d
 
 class App(ShowBase):
-  image_path = "/Users/max/Pictures/iPhoto Library/Originals/2011/Parque Lecocq/"
+  image_path = "images/"
   pic_stride = 2.05
   
   def __init__(self):
     ShowBase.__init__(self)
 
+    self.win.setClearColor(VBase4(0, 0, 0, 0))
+    wp = WindowProperties()
+    wp.setSize(1024, 768)
+    base.win.requestProperties(wp)
+
     self.nui = Nui()
     self.taskMgr.add(self.nuiTask, "NuiTask")
-
-    self.win.setClearColor(VBase4(0, 0, 0, 0))
 
     self.setFrameRateMeter(True)
     PStatClient.connect()
@@ -85,7 +88,7 @@ class App(ShowBase):
 
   def interpolateTask(self, task, interpolator, time):
     a = min(1, task.time/time)
-    self.picsNode.setPos(interpolator[a], 0, 0)
+    self.picsNode.setPos(interpolator(a), 0, 0)
     return Task.cont if a < 1 else Task.done
 
   def touch_down(self, touch):
@@ -111,8 +114,7 @@ class App(ShowBase):
       if fabs(speed) > 1.5: target_index += 1 if speed < 0 else -1
       target_index = max(0, min(self.picsNode.getNumChildren()-1, target_index))
       target = -target_index * App.pic_stride
-      interpolator = Bezier(start, min(speed, 1.5), target, 0)
-      self.taskMgr.add(task, "interpolateTask", 0, [task, interpolator, 0.5])
+      self.taskMgr.add(task, "interpolateTask", 0, [task, CubicInterpolator(start, target, speed), 0.5])
 
 if __name__ == '__main__':
   app = App()
