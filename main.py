@@ -118,9 +118,9 @@ class App(ShowBase):
       speed = touch.smooth_speeds[-1].x
       target_index = self.index_for_position(start)
       delta = touch.positions[-1].x - touch.positions[0].x
-      if fabs(speed) > 1.5 and target_index == self.index_for_position(start - delta):
+      if fabs(speed) > 2 and target_index == self.index_for_position(start - delta):
         target_index += 1 if speed < 0 else -1
-      speed = min(speed, 1.5)
+      speed = min(fabs(speed), 8) * (1 if speed > 0 else -1)
       target_index = max(0, min(self.picsNode.getNumChildren()-1, target_index))
       target = -target_index * App.pic_stride
       interp = CubicInterpolator(start, target, speed)
