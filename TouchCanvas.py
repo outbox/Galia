@@ -16,7 +16,7 @@ class Touch(object):
     self.append(pos)
     self.user = user
     self.side = side
-    self.smooth_factor = 0.6
+    self.smooth_factor = 0.9
 
   def smooth(self, old_value, new_value):
     return new_value * (1 - self.smooth_factor) + old_value * self.smooth_factor

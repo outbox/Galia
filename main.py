@@ -34,7 +34,7 @@ class App(ShowBase):
 
     self.win.setClearColor(VBase4(0, 0, 0, 0))
     wp = WindowProperties()
-    wp.setSize(1024, 768)
+    wp.setSize(1366, 768)
     base.win.requestProperties(wp)
 
     self.nui = Nui()
@@ -51,7 +51,7 @@ class App(ShowBase):
     self.picsNode = render.attachNewNode("Pics Node")
 
     maker = CardMaker("")
-    frameRatio = self.camLens.getAspectRatio()
+    frameRatio = wp.getXSize() / wp.getYSize()
     left = 0
     files = sorted([App.image_path + f for f in os.listdir(App.image_path)])[0:3]
     print "Loading", len(files), "files..."
