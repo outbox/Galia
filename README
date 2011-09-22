@@ -35,7 +35,7 @@ And apply this diff:
  end
 
 Then run:
-  brew install boost --universal
+  brew install boost --universal --build-from-source
 
 * Cmake
 
