@@ -6,28 +6,27 @@ from pynui import *
 
 from panda3d.core import *
 
+def lerp(a, b, t):
+  return a * (1 - t) + b * t
+
 class Touch(object):
   def __init__(self, user, side, pos):
     self.positions = []
-    self.smooth_positions = []
     self.speeds = []
-    self.smooth_speeds = []
     self.time = []
     self.append(pos)
     self.user = user
     self.side = side
-    self.smooth_factor = 0.9
-
-  def smooth(self, old_value, new_value):
-    return new_value * (1 - self.smooth_factor) + old_value * self.smooth_factor
+    self.speed_smooth = 0.9
 
   def append(self, pos):
-    first = len(self.positions) == 0
     self.positions.append(pos)
     self.time.append(clock())
-    self.smooth_positions.append(pos if first else self.smooth(self.smooth_positions[-1], pos))
-    self.speeds.append(Vec2() if first else (self.positions[-1] - self.positions[-2]) / (self.time[-1] - self.time[-2]))
-    self.smooth_speeds.append(Vec2() if first else self.smooth(self.speeds[-2], self.speeds[-1]))
+    if len(self.positions) >= 2:
+      speed = (self.positions[-1] - self.positions[-2]) / (self.time[-1] - self.time[-2])
+      self.speeds.append(lerp(speed, self.speeds[-1], self.speed_smooth))
+    else:
+      self.speeds.append(Vec2())
 
 class TouchCanvas:
   def __init__(self):
@@ -37,15 +36,15 @@ class TouchCanvas:
     self.touches = []
     self.size = Vec2(0.25, 0.25*9/16)
     self.origin = Vec3(0, 0, -0.35)
-
+    
   def update(self, users):
     for (user, skel) in users.items():
       self.update_user_side(user, skel, Skeleton.right)
       self.update_user_side(user, skel, Skeleton.left)
 
   def update_user_side(self, user, skel, side):
-    camera_pos = side.__get__(skel).hand.position
-    canvas_pos = camera_pos - (skel.neck.position + self.origin)
+    skel_side = side.__get__(skel)
+    canvas_pos = skel_side.hand.position - (skel_side.shoulder.position + self.origin)
     normalized_pos = Vec2(canvas_pos.x / self.size.x, canvas_pos.y / self.size.y)
 
     touches = [t for t in self.touches if t.user == user and t.side == side]

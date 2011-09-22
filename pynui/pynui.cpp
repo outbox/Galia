@@ -4,6 +4,10 @@
 
 using namespace boost::python;
 
+float lerp(float a, float b, float t) {
+  return a * (1 - t) + b * t;
+}
+
 struct Joint {
   object position, orientation;
   str repr() {
@@ -27,7 +31,10 @@ struct Nui {
   object main, vec3, mat3;
   object users;
   
-  Nui() {
+  float smooth_factor;
+  XnSkeletonJointTransformation smooth_joints[max_users][joint_count];
+  
+  Nui() : smooth_factor(0.9) {
     main = import("__main__");
     object global(main.attr("__dict__"));
     exec("from panda3d.core import *", global, global);
@@ -41,6 +48,17 @@ struct Nui {
   
   void update() {
     get_nui_data(&data);
+    
+    for (int i=0; i<max_events; ++i) {
+      nui_event& event = data.events[i];
+      switch (event.event) {
+        case nui_event::new_user:
+          memcpy(smooth_joints[event.user], data.joints[event.user], sizeof(data.joints[event.user]));
+          break;
+        default: break;
+      }
+    }
+    
     users = dict();
     for(int i=0;i<max_users;++i) {
       if(data.users[i]) {
@@ -69,9 +87,16 @@ struct Nui {
   }
   
   void joint(Joint& transform, int user, int joint) {
+    XnVector3D old_p = smooth_joints[user][joint].position.position;
     XnVector3D p = data.joints[user][joint].position.position;
+    p.X = lerp(p.X, old_p.X, smooth_factor);
+    p.Y = lerp(p.Y, old_p.Y, smooth_factor); 
+    p.Z = lerp(p.Z, old_p.Z, smooth_factor);
+    float scale = 1.f/1000;
+    transform.position = vec3(p.X * scale, p.Y * scale, p.Z * scale);
+    smooth_joints[user][joint].position.position = p;
+    
     float* o = data.joints[user][joint].orientation.orientation.elements;
-    transform.position = vec3(p.X/1000, p.Y/1000, p.Z/1000);
     transform.orientation = mat3(o[0], o[1], o[2], o[3], o[4], o[5], o[6], o[7], o[8]);
   }
 };
@@ -82,6 +107,7 @@ BOOST_PYTHON_MODULE(pynui)
   
   class_<Nui>("Nui")
   .def("update", &Nui::update)
+  .def_readwrite("smooth_factor", &Nui::smooth_factor)
   .def_readonly("users", &Nui::users)
   ;
   

@@ -53,7 +53,7 @@ class App(ShowBase):
     maker = CardMaker("")
     frameRatio = wp.getXSize() / wp.getYSize()
     left = 0
-    files = [App.image_path + f for f in os.listdir(App.image_path)][0:10]
+    files = [App.image_path + f for f in os.listdir(App.image_path)][0:4]
     print "Loading", len(files), "files..."
     for file in files:
       try:
@@ -76,7 +76,17 @@ class App(ShowBase):
       left += App.pic_stride
     print "Loaded"
 
-    self.accept("u", lambda: pprint(self.nui.users))
+    hand_y = -0.05
+    hand_size = 0.06
+    maker.setFrame(
+      Point3(0, hand_y, 0),
+      Point3(hand_size, hand_y, 0),
+      Point3(hand_size, hand_y, hand_size),
+      Point3(0, hand_y, hand_size))
+    self.hand = NodePath(maker.generate())
+    self.hand.reparentTo(render)
+    self.hand.setTexture(loader.loadTexture("resources/hand-drag.png"))
+    self.hand.setTransparency(TransparencyAttrib.MAlpha, 1) 
 
     self.current_touch = None
     self.touch_canvas = TouchCanvas()
@@ -102,8 +112,8 @@ class App(ShowBase):
   def touch_move(self, touch):
     if touch != self.current_touch:
       return
-    if len(touch.smooth_positions) > 1:
-      delta = touch.smooth_positions[-1].x - touch.smooth_positions[-2].x
+    if len(touch.positions) > 1:
+      delta = touch.positions[-1].x - touch.positions[-2].x
       self.picsNode.setPos(self.picsNode.getPos().x + delta, 0, 0)
 
   def index_for_position(self, pos):
@@ -115,7 +125,7 @@ class App(ShowBase):
     if not self.current_touch:
       task = PythonTask(self.interpolateTask)
       start = self.picsNode.getPos().x
-      speed = touch.smooth_speeds[-1].x
+      speed = touch.speeds[-1].x
       target_index = self.index_for_position(start)
       delta = touch.positions[-1].x - touch.positions[0].x
       if fabs(speed) > 2 and target_index == self.index_for_position(start - delta):
