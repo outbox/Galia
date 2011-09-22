@@ -38,6 +38,7 @@ class App(ShowBase):
     base.win.requestProperties(wp)
 
     self.nui = Nui()
+    self.nui.smooth_factor = 0.75
     self.taskMgr.add(self.nuiTask, "NuiTask")
 
     self.setFrameRateMeter(True)
@@ -85,14 +86,17 @@ class App(ShowBase):
       Point3(0, hand_y, hand_size))
     self.hand = NodePath(maker.generate())
     self.hand.reparentTo(render)
-    self.hand.setTexture(loader.loadTexture("resources/hand-drag.png"))
-    self.hand.setTransparency(TransparencyAttrib.MAlpha, 1) 
+    self.hand.setTexture(loader.loadTexture("resources/hand.png"))
+    self.hand.setPos(0, -2, 0)
+    self.hand.setTransparency(TransparencyAttrib.MAlpha, 1)
+    self.hand.setTwoSided(True)
 
     self.current_touch = None
     self.touch_canvas = TouchCanvas()
     self.touch_canvas.touch_down = self.touch_down
     self.touch_canvas.touch_move = self.touch_move
     self.touch_canvas.touch_up = self.touch_up
+    self.touch_canvas.cursor_move = self.cursor_move
 
   def nuiTask(self, task):
     self.nui.update()
@@ -104,10 +108,15 @@ class App(ShowBase):
     self.picsNode.setPos(interpolator(a), 0, 0)
     return Task.cont if a < 1 else Task.done
 
+  def cursor_move(self, pos, user, side):
+    self.hand.setScale(1 if side == Skeleton.right else -1, 1, 1)
+    self.hand.setPos(pos.x, 0, pos.y)
+
   def touch_down(self, touch):
     self.taskMgr.remove("interpolateTask")
     if self.current_touch is None:
       self.current_touch = touch
+      self.hand.setTexture(loader.loadTexture("resources/hand-drag.png"))
 
   def touch_move(self, touch):
     if touch != self.current_touch:
@@ -121,8 +130,9 @@ class App(ShowBase):
     
   def touch_up(self, touch):
     if touch == self.current_touch:
-      self.current_touch = self.touch_canvas.touches[0] if self.touch_canvas.touches else None
+      self.current_touch = self.touch_canvas.touches.values()[0] if self.touch_canvas.touches else None
     if not self.current_touch:
+      self.hand.setTexture(loader.loadTexture("resources/hand.png"))
       task = PythonTask(self.interpolateTask)
       start = self.picsNode.getPos().x
       speed = touch.speeds[-1].x
