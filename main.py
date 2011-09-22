@@ -25,6 +25,39 @@ class CubicInterpolator:
     t3 = t2*t
     return self.a * t3 + self.b * t2 + self.c * t + self.d
 
+class Hand:
+  def __init__(self, app):
+    y = -0.01
+    size = 0.06
+    maker = CardMaker("")
+    maker.setFrame(
+      Point3(0, y, 0),
+      Point3(size, y, 0),
+      Point3(size, y, size),
+      Point3(0, y, size))
+
+    def texture(file):
+      t = loader.loadTexture(file)
+      t.setWrapU(Texture.WMBorderColor)
+      t.setWrapV(Texture.WMBorderColor)
+      t.setBorderColor(VBase4())
+      return t
+    self.texture = texture("resources/hand.png")
+    self.drag_texture = texture("resources/hand-drag.png")
+
+    self.node = NodePath(maker.generate())
+    self.node.setTexture(self.texture)
+    self.node.setPos(0, 0, -2)
+    self.node.setTransparency(TransparencyAttrib.MAlpha, 1)
+    self.node.setTwoSided(True)
+    self.node.reparentTo(app.render)
+
+  def set_side(self, side):
+    self.node.setScale(1 if side == Skeleton.right else -1, 1, 1)
+
+  def set_drag(self, drag):
+    self.node.setTexture(self.drag_texture if drag else self.texture)
+
 class App(ShowBase):
   image_path = "images/"
   pic_stride = 2.05
@@ -47,7 +80,7 @@ class App(ShowBase):
     self.cam.setPos(0, -1, 0)
     self.camLens.setFov(90)
     self.camLens.setNear(0.01)
-    self.camLens.setFar(1000)
+    self.camLens.setFar(2)
 
     self.picsNode = render.attachNewNode("Pics Node")
 
@@ -77,20 +110,8 @@ class App(ShowBase):
       left += App.pic_stride
     print "Loaded"
 
-    hand_y = -0.05
-    hand_size = 0.06
-    maker.setFrame(
-      Point3(0, hand_y, 0),
-      Point3(hand_size, hand_y, 0),
-      Point3(hand_size, hand_y, hand_size),
-      Point3(0, hand_y, hand_size))
-    self.hand = NodePath(maker.generate())
-    self.hand.reparentTo(render)
-    self.hand.setTexture(loader.loadTexture("resources/hand.png"))
-    self.hand.setPos(0, -2, 0)
-    self.hand.setTransparency(TransparencyAttrib.MAlpha, 1)
-    self.hand.setTwoSided(True)
-
+    self.hand = Hand(self)
+    
     self.current_touch = None
     self.touch_canvas = TouchCanvas()
     self.touch_canvas.touch_down = self.touch_down
@@ -109,18 +130,18 @@ class App(ShowBase):
     return Task.cont if a < 1 else Task.done
 
   def cursor_move(self, pos, user, side):
-    self.hand.setScale(1 if side == Skeleton.right else -1, 1, 1)
-    self.hand.setPos(pos.x, 0, pos.y)
+    self.hand.set_side(side)
+    z = min(0, max(-0.2, -pos.z*2))
+    self.hand.node.setPos(pos.x, z, pos.y)
 
   def touch_down(self, touch):
     self.taskMgr.remove("interpolateTask")
-    if self.current_touch is None:
+    if self.current_touch is None and touch.user_side == self.touch_canvas.cursor:
       self.current_touch = touch
-      self.hand.setTexture(loader.loadTexture("resources/hand-drag.png"))
+      self.hand.set_drag(True)
 
   def touch_move(self, touch):
-    if touch != self.current_touch:
-      return
+    if touch != self.current_touch: return
     if len(touch.positions) > 1:
       delta = touch.positions[-1].x - touch.positions[-2].x
       self.picsNode.setPos(self.picsNode.getPos().x + delta, 0, 0)
@@ -129,10 +150,13 @@ class App(ShowBase):
     return floor(-pos / App.pic_stride + 0.5)
     
   def touch_up(self, touch):
-    if touch == self.current_touch:
-      self.current_touch = self.touch_canvas.touches.values()[0] if self.touch_canvas.touches else None
+    if touch != self.current_touch: return
+
+    touches = [t for t in self.touch_canvas.touches.values() if t.user_side == self.touch_canvas.cursor]
+    self.current_touch = touches[0] if touches else None
+
     if not self.current_touch:
-      self.hand.setTexture(loader.loadTexture("resources/hand.png"))
+      self.hand.set_drag(False)
       task = PythonTask(self.interpolateTask)
       start = self.picsNode.getPos().x
       speed = touch.speeds[-1].x

@@ -9,14 +9,13 @@ from panda3d.core import *
 def lerp(a, b, t):
   return a * (1 - t) + b * t
 
-class Touch(object):
-  def __init__(self, user, side, pos):
+class Touch:
+  def __init__(self, user_side, pos):
     self.positions = []
     self.speeds = []
     self.time = []
     self.append(pos)
-    self.user = user
-    self.side = side
+    self.user_side = user_side
     self.speed_smooth = 0.9
 
   def append(self, pos):
@@ -54,7 +53,6 @@ class TouchCanvas:
       for (user_side, hand) in self.hands.items():
         if valid_cursor(user_side):
           self.cursor = user_side
-          print self.cursor
           break
         
     if self.cursor:
@@ -85,6 +83,6 @@ class TouchCanvas:
         existing_touch.append(hand)
         self.touch_move and self.touch_move(existing_touch)
       else:
-        touch = Touch(user, side, hand)
+        touch = Touch((user, side), hand)
         self.touches[user, side] = touch
         self.touch_down and self.touch_down(touch)
