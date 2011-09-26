@@ -47,7 +47,7 @@ class TouchCanvas:
       self.update_user_side(user, skel, Skeleton.left)
 
     def valid_cursor(user_side):
-      return user_side and self.hands[user_side].y > -1
+      return user_side in self.hands and self.hands[user_side].y > -1
     
     if not valid_cursor(self.cursor):
       for (user_side, hand) in self.hands.items():
