@@ -71,7 +71,7 @@ class App(ShowBase):
     base.win.requestProperties(wp)
 
     self.nui = Nui()
-    self.nui.smooth_factor = 0.75
+    self.nui.smooth_factor = 0.8
     self.taskMgr.add(self.nuiTask, "NuiTask")
 
     self.setFrameRateMeter(True)
