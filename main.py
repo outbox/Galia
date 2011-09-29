@@ -71,12 +71,12 @@ class App(ShowBase):
 
     self.win.setClearColor(VBase4(0, 0, 0, 0))
     wp = WindowProperties()
-    wp.setSize(1366, 768)
+    wp.setSize(1536, 768)
     base.win.requestProperties(wp)
 
     self.nui = Nui()
     self.nui.smooth_factor = 0.8
-    self.taskMgr.add(self.nuiTask, "NuiTask")
+    self.taskMgr.add(self.nui_task, "NuiTask")
 
     self.cam.setPos(0, -1, 0)
     self.camLens.setFov(90)
@@ -88,7 +88,7 @@ class App(ShowBase):
     maker = CardMaker("")
     frameRatio = wp.getXSize() / wp.getYSize()
     left = 0
-    files = [App.image_path + f for f in os.listdir(App.image_path)]
+    files = [App.image_path + f for f in os.listdir(App.image_path)][0:5]
     before = clock()
     print "Loading", len(files), "files..."
     for file in files:
@@ -122,22 +122,36 @@ class App(ShowBase):
     self.touch_canvas.cursor_move = self.cursor_move
     self.touch_canvas.cursor_appear = self.cursor_appear
     self.touch_canvas.cursor_disappear = self.cursor_disappear
-
-  def nuiTask(self, task):
+    
+  def nui_task(self, task):
     self.nui.update()
     self.touch_canvas.update(self.nui.users)
     return Task.cont
 
-  def interpolateTask(self, task, interpolator, time):
+  def interpolate_task(self, task, interpolator, time, axis, node):
     a = min(1, task.time/time)
-    self.picsNode.setPos(interpolator(a), 0, 0)
+    v = node.getPos()
+    v.__setattr__(axis, interpolator(a))
+    node.setPos(v)
     return Task.cont if a < 1 else Task.done
 
+  def interpolate(self, name, node, axis, to, speed=0, time=0.5):
+    v = node.getPos()
+    interp = CubicInterpolator(v.__getattribute__(axis), to, speed)
+    task = PythonTask(self.interpolate_task, name)
+    self.taskMgr.add(task, extraArgs=[task, interp, time, axis, node])
+    
   def cursor_appear(self):
-    print 'appear'
+    self.taskMgr.remove("zoom")
+    offset = 0.2
+    self.interpolate("zoom", self.picsNode, 'y', offset)
+    vfov = radians(self.camLens.getVfov())
+    self.interpolate("zoom", self.picsNode, 'z', -offset * tan(vfov/2))
 
   def cursor_disappear(self):
-    print 'disappear'
+    self.taskMgr.remove("zoom")
+    self.interpolate("zoom", self.picsNode, 'y', 0)
+    self.interpolate("zoom", self.picsNode, 'z', 0)
 
   def cursor_move(self, pos, user, side):
     self.hand.set_side(side)
@@ -145,7 +159,7 @@ class App(ShowBase):
     self.hand.node.setPos(pos.x, z, pos.y)
 
   def touch_down(self, touch):
-    self.taskMgr.remove("interpolateTask")
+    self.taskMgr.remove("inertia")
     if self.current_touch is None and touch.user_side == self.touch_canvas.cursor:
       self.current_touch = touch
       self.hand.set_drag(True)
@@ -154,7 +168,8 @@ class App(ShowBase):
     if touch != self.current_touch: return
     if len(touch.positions) > 1:
       delta = touch.positions[-1].x - touch.positions[-2].x
-      self.picsNode.setPos(self.picsNode.getPos().x + delta, 0, 0)
+      v = self.picsNode.getPos()
+      self.picsNode.setPos(v.x + delta, v.y, v.z)
 
   def index_for_position(self, pos):
     return floor(-pos / App.pic_stride + 0.5)
@@ -167,7 +182,6 @@ class App(ShowBase):
 
     if not self.current_touch:
       self.hand.set_drag(False)
-      task = PythonTask(self.interpolateTask)
       start = self.picsNode.getPos().x
       speed = touch.speeds[-1].x
       target_index = self.index_for_position(start)
@@ -177,8 +191,7 @@ class App(ShowBase):
       speed = min(fabs(speed), 8) * (1 if speed > 0 else -1)
       target_index = max(0, min(self.picsNode.getNumChildren()-1, target_index))
       target = -target_index * App.pic_stride
-      interp = CubicInterpolator(start, target, speed)
-      self.taskMgr.add(task, "interpolateTask", 0, [task, interp, 0.5])
+      self.interpolate("inertia", self.picsNode, 'x', target, speed)
 
 if __name__ == '__main__':
   app = App()
