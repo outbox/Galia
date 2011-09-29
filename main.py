@@ -93,9 +93,11 @@ class App(ShowBase):
     print "Loading", len(files), "files..."
     for file in files:
       try:
-        texture = loader.loadTexture(file, minFilter=Texture.FTLinearMipmapLinear)
+         texture = loader.loadTexture(file)
       except:
         continue
+      texture.setMinfilter(Texture.FTLinearMipmapLinear)
+      texture.setAnisotropicDegree(4)
       textureRatio = texture.getOrigFileXSize() * 1.0 / texture.getOrigFileYSize()
       scale = textureRatio/frameRatio if textureRatio < frameRatio else 1
       maker.setFrame(
@@ -118,6 +120,8 @@ class App(ShowBase):
     self.touch_canvas.touch_move = self.touch_move
     self.touch_canvas.touch_up = self.touch_up
     self.touch_canvas.cursor_move = self.cursor_move
+    self.touch_canvas.cursor_appear = self.cursor_appear
+    self.touch_canvas.cursor_disappear = self.cursor_disappear
 
   def nuiTask(self, task):
     self.nui.update()
@@ -128,6 +132,12 @@ class App(ShowBase):
     a = min(1, task.time/time)
     self.picsNode.setPos(interpolator(a), 0, 0)
     return Task.cont if a < 1 else Task.done
+
+  def cursor_appear(self):
+    print 'appear'
+
+  def cursor_disappear(self):
+    print 'disappear'
 
   def cursor_move(self, pos, user, side):
     self.hand.set_side(side)

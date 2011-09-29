@@ -32,7 +32,9 @@ class TouchCanvas:
     self.touch_down = None
     self.touch_move = None
     self.touch_up = None
+    self.cursor_appear = None
     self.cursor_move = None
+    self.cursor_disappear = None
     self.touches = {}
     self.size = Vec2(0.25, 0.25)
     self.origin = Vec3(0, 0, -0.35)
@@ -50,8 +52,12 @@ class TouchCanvas:
       return user_side in self.hands and self.hands[user_side].y > -1
     
     if not valid_cursor(self.cursor):
+      if not self.cursor is None:
+        self.cursor_disappear and self.cursor_disappear()
+      self.cursor = None
       for (user_side, hand) in self.hands.items():
         if valid_cursor(user_side):
+          self.cursor_appear and self.cursor_appear()
           self.cursor = user_side
           break
         
