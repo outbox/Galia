@@ -2,6 +2,7 @@ import sys
 import os
 from pprint import pprint
 from math import *
+from time import clock
 
 sys.path.append("./build/pynui")
 from pynui import *
@@ -65,6 +66,9 @@ class App(ShowBase):
   def __init__(self):
     ShowBase.__init__(self)
 
+    loadPrcFile("local-config.prc")
+    base.disableMouse()
+
     self.win.setClearColor(VBase4(0, 0, 0, 0))
     wp = WindowProperties()
     wp.setSize(1366, 768)
@@ -73,9 +77,6 @@ class App(ShowBase):
     self.nui = Nui()
     self.nui.smooth_factor = 0.8
     self.taskMgr.add(self.nuiTask, "NuiTask")
-
-    self.setFrameRateMeter(True)
-    PStatClient.connect()
 
     self.cam.setPos(0, -1, 0)
     self.camLens.setFov(90)
@@ -87,15 +88,14 @@ class App(ShowBase):
     maker = CardMaker("")
     frameRatio = wp.getXSize() / wp.getYSize()
     left = 0
-    files = [App.image_path + f for f in os.listdir(App.image_path)][0:4]
+    files = [App.image_path + f for f in os.listdir(App.image_path)]
+    before = clock()
     print "Loading", len(files), "files..."
     for file in files:
       try:
-        texture = loader.loadTexture(file)
+        texture = loader.loadTexture(file, minFilter=Texture.FTLinearMipmapLinear)
       except:
         continue
-      texture.setMinfilter(Texture.FTLinearMipmapLinear)
-      texture.setAnisotropicDegree(4)
       textureRatio = texture.getOrigFileXSize() * 1.0 / texture.getOrigFileYSize()
       scale = textureRatio/frameRatio if textureRatio < frameRatio else 1
       maker.setFrame(
@@ -108,7 +108,7 @@ class App(ShowBase):
       card.setTexture(texture)
       card.setPos(left, 0, 0)
       left += App.pic_stride
-    print "Loaded"
+    print "Loaded in", str(clock() - before) + "s"
 
     self.hand = Hand(self)
     
