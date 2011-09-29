@@ -29,13 +29,13 @@ class CubicInterpolator:
 class Hand:
   def __init__(self, app):
     y = -0.01
-    size = 0.06
+    size = 0.03
     maker = CardMaker("")
     maker.setFrame(
-      Point3(0, y, 0),
-      Point3(size, y, 0),
+      Point3(-size, y, -size),
+      Point3(size, y, -size),
       Point3(size, y, size),
-      Point3(0, y, size))
+      Point3(-size, y, size))
 
     def texture(file):
       t = loader.loadTexture(file)
@@ -110,6 +110,7 @@ class App(ShowBase):
       card.setTexture(texture)
       card.setPos(left, 0, 0)
       left += App.pic_stride
+      
     print "Loaded in", str(clock() - before) + "s"
 
     self.hand = Hand(self)
@@ -156,7 +157,9 @@ class App(ShowBase):
   def cursor_move(self, pos, user, side):
     self.hand.set_side(side)
     z = min(0, max(-0.2, -pos.z*2))
-    self.hand.node.setPos(pos.x, z, pos.y)
+    vfov = radians(self.camLens.getVfov())
+    y_bound = (self.hand.node.getPos().y - self.cam.getPos().y) * tan(vfov/2)
+    self.hand.node.setPos(pos.x, z, min(y_bound, pos.y))
 
   def touch_down(self, touch):
     self.taskMgr.remove("inertia")
