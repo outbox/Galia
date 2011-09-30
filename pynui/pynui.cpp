@@ -95,16 +95,18 @@ struct Nui {
     XnVector3D p = joint.position.position;
     transform.valid = joint.position.fConfidence == 1;
     if (transform.valid) {
-      if (smooth_joint.position.fConfidence != 1) {
+      if (smooth_joint.position.fConfidence == 1) {
         p.X = lerp(p.X, old_p.X, smooth_factor);
         p.Y = lerp(p.Y, old_p.Y, smooth_factor);
         p.Z = lerp(p.Z, old_p.Z, smooth_factor);
       }
       transform.position = vec3(p.X * scale, p.Y * scale, p.Z * scale);
-      smooth_joint.position.position = p;
-      
+            
       float* o = joint.orientation.orientation.elements;
       transform.orientation = mat3(o[0], o[1], o[2], o[3], o[4], o[5], o[6], o[7], o[8]);
+
+      smooth_joint.position.position = p;
+      smooth_joint.position.fConfidence = joint.position.fConfidence;
     }
   }
 };

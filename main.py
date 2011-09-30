@@ -109,12 +109,17 @@ class App(ShowBase):
       pic.setTexture(texture)
       pic.setPos(left, 0, 0)
       
-      # thumb = NodePath(maker.generate())
-      # thumb.reparentTo(self.thumbsNode)
-      # thumb.setTexture(texture)
-      # thumb.setPos(left, 0, 0)
+      thumb = NodePath(maker.generate())
+      thumb.reparentTo(self.thumbsNode)
+      thumb.setTexture(texture)
+      thumb.setPos(left, 0, 0)
 
       left += self.pic_stride
+
+    scale = min(2/left, 0.1)
+    self.thumbsNode.setScale(scale)
+    count = self.thumbsNode.getNumChildren()
+    self.thumbsNode.setPos(-scale * count, 0, self.top() * (1 - scale) * 0.9)
       
     print "Loaded in", str(clock() - before) + "s"
 
@@ -128,6 +133,10 @@ class App(ShowBase):
     self.touch_canvas.cursor_move = self.cursor_move
     self.touch_canvas.cursor_appear = self.cursor_appear
     self.touch_canvas.cursor_disappear = self.cursor_disappear
+
+  def top(self, y = 0):
+    vfov = radians(self.camLens.getVfov())
+    return (y - self.cam.getPos().y) * tan(vfov/2)
     
   def nui_task(self, task):
     self.nui.update()
@@ -152,20 +161,21 @@ class App(ShowBase):
     offset = 0.2
     self.interpolate("zoom", self.picsNode, 'y', offset)
     vfov = radians(self.camLens.getVfov())
-    self.interpolate("zoom", self.picsNode, 'z', -offset * tan(vfov/2))
+    self.interpolate("zoom", self.picsNode, 'z', -offset * tan(vfov/2) * 0.7)
     self.hand.node.show()
+    self.thumbsNode.show()
 
   def cursor_disappear(self):
     self.taskMgr.remove("zoom")
     self.interpolate("zoom", self.picsNode, 'y', 0)
     self.interpolate("zoom", self.picsNode, 'z', 0)
     self.hand.node.hide()
+    self.thumbsNode.hide()
 
   def cursor_move(self, pos, user, side):
     self.hand.set_side(side)
     z = min(0, max(-0.2, -pos.z*2))
-    vfov = radians(self.camLens.getVfov())
-    y_scale = (self.hand.node.getPos().y - self.cam.getPos().y) * tan(vfov/2)
+    y_scale = self.top(self.hand.node.getPos().y)
     self.hand.node.setPos(pos.x, z, min(1, pos.y) * y_scale)
 
   def touch_down(self, touch):
