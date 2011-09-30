@@ -82,7 +82,7 @@ class App(ShowBase):
     self.picsNode = render.attachNewNode("Pics Node")
 
     maker = CardMaker("")
-    frameRatio = wp.getXSize() / wp.getYSize()
+    frameRatio = self.camLens.getAspectRatio()
     left = 0
     files = [App.image_path + f for f in os.listdir(App.image_path)][0:5]
     before = clock()
