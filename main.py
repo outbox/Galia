@@ -66,13 +66,9 @@ class App(ShowBase):
   def __init__(self):
     ShowBase.__init__(self)
 
-    loadPrcFile("local-config.prc")
     base.disableMouse()
 
     self.win.setClearColor(VBase4(0, 0, 0, 0))
-    wp = WindowProperties()
-    wp.setSize(1536, 768)
-    base.win.requestProperties(wp)
 
     self.nui = Nui()
     self.nui.smooth_factor = 0.8
@@ -197,5 +193,6 @@ class App(ShowBase):
       self.interpolate("inertia", self.picsNode, 'x', target, speed)
 
 if __name__ == '__main__':
+  loadPrcFile("local-config.prc")
   app = App()
   app.run()
