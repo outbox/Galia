@@ -29,13 +29,13 @@ class CubicInterpolator:
 class Hand:
   def __init__(self, app):
     y = -0.01
-    size = 0.03
+    size = 0.06
     maker = CardMaker("")
     maker.setFrame(
-      Point3(-size, y, -size),
-      Point3(size, y, -size),
-      Point3(size, y, size),
-      Point3(-size, y, size))
+      Point3(-size/2, y, -size),
+      Point3(size/2, y, -size),
+      Point3(size/2, y, 0),
+      Point3(-size/2, y, 0))
 
     def texture(file):
       t = loader.loadTexture(file)
@@ -144,18 +144,20 @@ class App(ShowBase):
     self.interpolate("zoom", self.picsNode, 'y', offset)
     vfov = radians(self.camLens.getVfov())
     self.interpolate("zoom", self.picsNode, 'z', -offset * tan(vfov/2))
+    self.hand.node.show()
 
   def cursor_disappear(self):
     self.taskMgr.remove("zoom")
     self.interpolate("zoom", self.picsNode, 'y', 0)
     self.interpolate("zoom", self.picsNode, 'z', 0)
+    self.hand.node.hide()
 
   def cursor_move(self, pos, user, side):
     self.hand.set_side(side)
     z = min(0, max(-0.2, -pos.z*2))
     vfov = radians(self.camLens.getVfov())
-    y_bound = (self.hand.node.getPos().y - self.cam.getPos().y) * tan(vfov/2)
-    self.hand.node.setPos(pos.x, z, min(y_bound, pos.y))
+    y_scale = (self.hand.node.getPos().y - self.cam.getPos().y) * tan(vfov/2)
+    self.hand.node.setPos(pos.x, z, min(1, pos.y) * y_scale)
 
   def touch_down(self, touch):
     self.taskMgr.remove("inertia")
