@@ -60,11 +60,11 @@ class Hand:
     self.node.setTexture(self.drag_texture if drag else self.texture)
 
 class App(ShowBase):
-  image_path = "images/"
-  pic_stride = 2.05
-  
   def __init__(self):
     ShowBase.__init__(self)
+
+    self.image_path = "images/"
+    self.pic_stride = 2.05
 
     base.disableMouse()
 
@@ -79,12 +79,14 @@ class App(ShowBase):
     self.camLens.setNear(0.01)
     self.camLens.setFar(2)
 
-    self.picsNode = render.attachNewNode("Pics Node")
+    self.picsNode = render.attachNewNode("Pics")
+    self.thumbsNode = render.attachNewNode("Thumbs")
+    self.thumbsNode
 
     maker = CardMaker("")
     frameRatio = self.camLens.getAspectRatio()
     left = 0
-    files = [App.image_path + f for f in os.listdir(App.image_path)][0:5]
+    files = [self.image_path + f for f in os.listdir(self.image_path)][0:5]
     before = clock()
     print "Loading", len(files), "files..."
     for file in files:
@@ -101,11 +103,18 @@ class App(ShowBase):
         Point3(1 * scale, 0, -1 / textureRatio * scale),
         Point3(1 * scale, 0, 1 / textureRatio * scale),
         Point3(-1 * scale, 0, 1 / textureRatio * scale))
-      card = NodePath(maker.generate())
-      card.reparentTo(self.picsNode)
-      card.setTexture(texture)
-      card.setPos(left, 0, 0)
-      left += App.pic_stride
+
+      pic = NodePath(maker.generate())
+      pic.reparentTo(self.picsNode)
+      pic.setTexture(texture)
+      pic.setPos(left, 0, 0)
+      
+      # thumb = NodePath(maker.generate())
+      # thumb.reparentTo(self.thumbsNode)
+      # thumb.setTexture(texture)
+      # thumb.setPos(left, 0, 0)
+
+      left += self.pic_stride
       
     print "Loaded in", str(clock() - before) + "s"
 
@@ -173,13 +182,12 @@ class App(ShowBase):
       self.picsNode.setPos(v.x + delta, v.y, v.z)
 
   def index_for_position(self, pos):
-    return floor(-pos / App.pic_stride + 0.5)
+    return floor(-pos / self.pic_stride + 0.5)
     
   def touch_up(self, touch):
-    if touch != self.current_touch: return
-
-    touches = [t for t in self.touch_canvas.touches.values() if t.user_side == self.touch_canvas.cursor]
-    self.current_touch = touches[0] if touches else None
+    if touch == self.current_touch:
+      touches = [t for t in self.touch_canvas.touches.values() if t.user_side == self.touch_canvas.cursor]
+      self.current_touch = touches[0] if touches else None
 
     if not self.current_touch:
       self.hand.set_drag(False)
@@ -191,7 +199,7 @@ class App(ShowBase):
         target_index += 1 if speed < 0 else -1
       speed = min(fabs(speed), 8) * (1 if speed > 0 else -1)
       target_index = max(0, min(self.picsNode.getNumChildren()-1, target_index))
-      target = -target_index * App.pic_stride
+      target = -target_index * self.pic_stride
       self.interpolate("inertia", self.picsNode, 'x', target, speed)
 
 if __name__ == '__main__':

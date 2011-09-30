@@ -10,6 +10,7 @@ float lerp(float a, float b, float t) {
 
 struct Joint {
   object position, orientation;
+  bool valid;
   str repr() {
     std::string p = extract<std::string>(position.attr("__repr__")());
     std::string o = extract<std::string>(orientation.attr("__repr__")());
@@ -86,18 +87,25 @@ struct Nui {
     }
   }
   
-  void joint(Joint& transform, int user, int joint) {
-    XnVector3D old_p = smooth_joints[user][joint].position.position;
-    XnVector3D p = data.joints[user][joint].position.position;
-    p.X = lerp(p.X, old_p.X, smooth_factor);
-    p.Y = lerp(p.Y, old_p.Y, smooth_factor); 
-    p.Z = lerp(p.Z, old_p.Z, smooth_factor);
-    float scale = 1.f/1000;
-    transform.position = vec3(p.X * scale, p.Y * scale, p.Z * scale);
-    smooth_joints[user][joint].position.position = p;
-    
-    float* o = data.joints[user][joint].orientation.orientation.elements;
-    transform.orientation = mat3(o[0], o[1], o[2], o[3], o[4], o[5], o[6], o[7], o[8]);
+  void joint(Joint& transform, int user, int jointIndex) {
+    const float scale = 1.f/1000;
+    XnSkeletonJointTransformation& smooth_joint = smooth_joints[user][jointIndex];
+    XnSkeletonJointTransformation& joint = data.joints[user][jointIndex];
+    XnVector3D old_p = smooth_joint.position.position;
+    XnVector3D p = joint.position.position;
+    transform.valid = joint.position.fConfidence == 1;
+    if (transform.valid) {
+      if (smooth_joint.position.fConfidence != 1) {
+        p.X = lerp(p.X, old_p.X, smooth_factor);
+        p.Y = lerp(p.Y, old_p.Y, smooth_factor);
+        p.Z = lerp(p.Z, old_p.Z, smooth_factor);
+      }
+      transform.position = vec3(p.X * scale, p.Y * scale, p.Z * scale);
+      smooth_joint.position.position = p;
+      
+      float* o = joint.orientation.orientation.elements;
+      transform.orientation = mat3(o[0], o[1], o[2], o[3], o[4], o[5], o[6], o[7], o[8]);
+    }
   }
 };
 
@@ -114,6 +122,7 @@ BOOST_PYTHON_MODULE(pynui)
   class_<Joint>("Joint")
   .def_readonly("position", &Joint::position)
   .def_readonly("orientation", &Joint::orientation)
+  .def_readonly("valid", &Joint::valid)
   .def("__repr__", &Joint::repr)
   ;
   

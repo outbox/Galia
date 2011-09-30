@@ -60,23 +60,28 @@ class TouchCanvas:
           self.cursor_appear and self.cursor_appear()
           self.cursor = user_side
           break
-        
+
     if self.cursor:
       pos = self.hands[self.cursor]
       self.cursor_move and self.cursor_move(pos, self.cursor[0], self.cursor[1])
       
   def update_user_side(self, user, skel, side):
     skel_side = side.__get__(skel)
+
+    if not skel_side.shoulder.valid or not skel_side.hand.valid:
+      if (user, side) in self.shoulders: del self.shoulders[user, side]
+      if (user, side) in self.hands: del self.hands[user, side]
+      return
     
     old_shoulder = self.shoulders.get((user, side), None)
     shoulder = skel_side.shoulder.position
     shoulder = lerp(shoulder, old_shoulder, 0.9) if old_shoulder else shoulder
-    self.shoulders[(user, side)] = shoulder
+    self.shoulders[user, side] = shoulder
 
     hand =  skel_side.hand.position - (shoulder + self.origin)
     hand.x /= self.size.x
     hand.y /= self.size.y
-    self.hands[(user, side)] = hand
+    self.hands[user, side] = hand
 
     existing_touch = self.touches.get((user, side), None)
 
