@@ -3,3 +3,4 @@ build/
 xcode/
 *.pyc
 images/
+*.sublime-*

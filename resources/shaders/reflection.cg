@@ -1,0 +1,18 @@
+void vshader(
+  float4 vtx_position : POSITION,
+  out float4 l_position : POSITION,
+  out float4 l_texcoord1 : TEXCOORD1,
+  uniform float4x4 mat_modelproj)
+{
+  l_texcoord1 = l_position = mul(mat_modelproj, vtx_position);
+}
+ 
+void fshader(
+  uniform sampler2D tex_0,
+  float2 l_texcoord0 : TEXCOORD0,
+  float4 l_texcoord1 : TEXCOORD1,
+  out float4 o_color : COLOR)
+{
+  float2 coord = (l_texcoord1.xy / l_texcoord1.w + float2(1)) / 2;
+  o_color=tex2D(tex_0, coord) * 0.6;
+}

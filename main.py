@@ -28,14 +28,9 @@ class CubicInterpolator:
 
 class Hand:
   def __init__(self, app):
-    y = -0.01
     size = 0.06
     maker = CardMaker("")
-    maker.setFrame(
-      Point3(-size/2, y, -size),
-      Point3(size/2, y, -size),
-      Point3(size/2, y, 0),
-      Point3(-size/2, y, 0))
+    maker.setFrame(-size/2, size/2, -size, 0)
 
     def texture(file):
       t = loader.loadTexture(file)
@@ -48,10 +43,10 @@ class Hand:
 
     self.node = NodePath(maker.generate())
     self.node.setTexture(self.texture)
-    self.node.setPos(0, 0, -2)
     self.node.setTransparency(TransparencyAttrib.MAlpha, 1)
     self.node.setTwoSided(True)
     self.node.reparentTo(app.render)
+    self.node.hide()
 
   def set_side(self, side):
     self.node.setScale(1 if side == Skeleton.right else -1, 1, 1)
@@ -86,7 +81,7 @@ class App(ShowBase):
     maker = CardMaker("")
     frameRatio = self.camLens.getAspectRatio()
     left = 0
-    files = [self.image_path + f for f in os.listdir(self.image_path)][0:5]
+    files = [self.image_path + f for f in os.listdir(self.image_path)][0:6]
     before = clock()
     print "Loading", len(files), "files..."
     for file in files:
@@ -98,11 +93,7 @@ class App(ShowBase):
       texture.setAnisotropicDegree(4)
       textureRatio = texture.getOrigFileXSize() * 1.0 / texture.getOrigFileYSize()
       scale = textureRatio/frameRatio if textureRatio < frameRatio else 1
-      maker.setFrame(
-        Point3(-1 * scale, 0, -1 / textureRatio * scale),
-        Point3(1 * scale, 0, -1 / textureRatio * scale),
-        Point3(1 * scale, 0, 1 / textureRatio * scale),
-        Point3(-1 * scale, 0, 1 / textureRatio * scale))
+      maker.setFrame(-scale, scale, -scale / textureRatio, scale / textureRatio)
 
       pic = NodePath(maker.generate())
       pic.reparentTo(self.picsNode)
@@ -112,6 +103,7 @@ class App(ShowBase):
       thumb = NodePath(maker.generate())
       thumb.reparentTo(self.thumbsNode)
       thumb.setTexture(texture)
+      thumb.setTransparency(TransparencyAttrib.MAlpha, 1)
       thumb.setPos(left, 0, 0)
 
       left += self.pic_stride
@@ -119,7 +111,7 @@ class App(ShowBase):
     scale = min(2/left, 0.1)
     self.thumbsNode.setScale(scale)
     count = self.thumbsNode.getNumChildren()
-    self.thumbsNode.setPos(-scale * count, 0, self.top() * (1 - scale) * 0.9)
+    self.thumbsNode.setPos(-scale * count, 0, self.top() * (1 - scale))
       
     print "Loaded in", str(clock() - before) + "s"
 
@@ -134,9 +126,13 @@ class App(ShowBase):
     self.touch_canvas.cursor_appear = self.cursor_appear
     self.touch_canvas.cursor_disappear = self.cursor_disappear
 
+    self.setupMirror()
+
   def top(self, y = 0):
-    vfov = radians(self.camLens.getVfov())
-    return (y - self.cam.getPos().y) * tan(vfov/2)
+    return (y - self.cam.getPos().y) * tan(self.vfov()/2)
+
+  def vfov(self):
+    return radians(self.camLens.getVfov())
     
   def nui_task(self, task):
     self.nui.update()
@@ -150,27 +146,37 @@ class App(ShowBase):
     node.setPos(v)
     return Task.cont if a < 1 else Task.done
 
+  def fade_thumbs_task(self, task, start, end, time):
+    a = min(1, task.time/time)
+    for node in self.thumbsNode.getChildren():
+      node.setSa(a*end + (1-a)*start)
+    return Task.cont if a < 1 else Task.done
+
   def interpolate(self, name, node, axis, to, speed=0, time=0.5):
     v = node.getPos()
     interp = CubicInterpolator(v.__getattribute__(axis), to, speed)
     task = PythonTask(self.interpolate_task, name)
     self.taskMgr.add(task, extraArgs=[task, interp, time, axis, node])
+
+  def fadeThumbs(self, to, time=0.5):
+    self.taskMgr.remove("Fade")
+    task = PythonTask(self.fade_thumbs_task, "Fade")
+    self.taskMgr.add(task, extraArgs=[task, self.thumbsNode.getChildren()[0].getSa(), to, time])
     
   def cursor_appear(self):
     self.taskMgr.remove("zoom")
-    offset = 0.2
+    offset = 0.3
     self.interpolate("zoom", self.picsNode, 'y', offset)
-    vfov = radians(self.camLens.getVfov())
-    self.interpolate("zoom", self.picsNode, 'z', -offset * tan(vfov/2) * 0.7)
+#    self.interpolate("zoom", self.picsNode, 'z', -offset * tan(self.vfov()/2) * 0.7)
     self.hand.node.show()
-    self.thumbsNode.show()
+    self.fadeThumbs(1)
 
   def cursor_disappear(self):
     self.taskMgr.remove("zoom")
     self.interpolate("zoom", self.picsNode, 'y', 0)
     self.interpolate("zoom", self.picsNode, 'z', 0)
     self.hand.node.hide()
-    self.thumbsNode.hide()
+    self.fadeThumbs(0)
 
   def cursor_move(self, pos, user, side):
     self.hand.set_side(side)
@@ -211,6 +217,38 @@ class App(ShowBase):
       target_index = max(0, min(self.picsNode.getNumChildren()-1, target_index))
       target = -target_index * self.pic_stride
       self.interpolate("inertia", self.picsNode, 'x', target, speed)
+
+  def setupMirror(self):
+    name = 'mirror'
+    width = height = 10
+    z = -0.58
+    root = render.attachNewNode(name)
+
+    cm = CardMaker('mirror')
+    cm.setFrame(-width / 2.0, width / 2.0, -height / 2.0, height / 2.0)
+    
+    card = root.attachNewNode(cm.generate())
+
+    buffer = base.win.makeTextureBuffer(name, 1024, 1024)
+    buffer.setClearColor(VBase4(0, 0, 0.01, 1))
+
+    display = buffer.makeDisplayRegion()
+    camera = Camera('mirror')
+    cameraNP = render.attachNewNode(camera)
+    display.setCamera(cameraNP)
+
+    camera.setInitialState(RenderState.make(CullFaceAttrib.makeReverse())) 
+
+    camera.setLens(base.camLens)
+    symmetry = Mat4.translateMat(0,0,-z) * Mat4.scaleMat(1,1,-1) * Mat4.translateMat(0,0,z)
+    cameraNP.setMat(base.cam.getMat() * symmetry)
+
+    shader = Shader.load("resources/shaders/reflection.cg", Shader.SLCg)
+    card.setShader(shader)
+    card.setTexture(buffer.getTexture())
+
+    root.reparentTo(render)
+    root.setMat(Mat4.rotateMat(-90, VBase3.unitX()) * Mat4.translateMat(0, 0, z))
 
 if __name__ == '__main__':
   loadPrcFile("local-config.prc")
