@@ -85,7 +85,7 @@ class TouchCanvas:
 
     existing_touch = self.touches.get((user, side), None)
 
-    if hand.z > 0:
+    if hand.z > 0 or hand.y < -1:
       if existing_touch:
         del self.touches[user, side]
         self.touch_up and self.touch_up(existing_touch)
