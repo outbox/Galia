@@ -54,6 +54,8 @@ class Hand:
   def set_drag(self, drag):
     self.node.setTexture(self.drag_texture if drag else self.texture)
 
+CollisionMask = BitMask32(0x10)
+
 class App(ShowBase):
   def __init__(self):
     ShowBase.__init__(self)
@@ -67,8 +69,7 @@ class App(ShowBase):
 
     self.nui = Nui()
     self.nui.smooth_factor = 0.8
-    self.taskMgr.add(self.nui_task, "NuiTask")
-
+    
     self.cam.setPos(0, -1, 0)
     self.camLens.setFov(90)
     self.camLens.setNear(0.01)
@@ -84,6 +85,7 @@ class App(ShowBase):
     files = [self.image_path + f for f in os.listdir(self.image_path)][0:6]
     before = clock()
     print "Loading", len(files), "files..."
+    index = 0
     for file in files:
       try:
          texture = loader.loadTexture(file)
@@ -105,8 +107,11 @@ class App(ShowBase):
       thumb.setTexture(texture)
       thumb.setTransparency(TransparencyAttrib.MAlpha, 1)
       thumb.setPos(left, 0, 0)
+      thumb.setTag('index', str(index))
+      thumb.setCollideMask(CollisionMask)
 
       left += self.pic_stride
+      index += 1
 
     scale = min(2/left, 0.1)
     self.thumbsNode.setScale(scale)
@@ -128,15 +133,35 @@ class App(ShowBase):
 
     self.setupMirror()
 
+    base.cTrav = CollisionTraverser('CollisionTraverser')
+
+    pickerNode = CollisionNode('mouseRay')
+    pickerNode.setFromCollideMask(CollisionMask)
+    self.cursor_ray = CollisionRay(self.cam.getPos(), Vec3.unitZ())
+    pickerNode.addSolid(self.cursor_ray)
+    pickerNP = render.attachNewNode(pickerNode)
+    self.collision_queue = CollisionHandlerQueue()
+    base.cTrav.addCollider(pickerNP, self.collision_queue)
+
+    self.taskMgr.add(self.update, "UpdateTask")
+
   def top(self, y = 0):
     return (y - self.cam.getPos().y) * tan(self.vfov()/2)
 
   def vfov(self):
     return radians(self.camLens.getVfov())
     
-  def nui_task(self, task):
+  def update(self, task):
     self.nui.update()
     self.touch_canvas.update(self.nui.users)
+
+    base.cTrav.traverse(render)
+
+    if self.collision_queue.getNumEntries() > 0:
+      self.collision_queue.sortEntries()
+      picked = self.collision_queue.getEntry(0).getIntoNodePath()
+      print picked.getTag('pic-index')
+    
     return Task.cont
 
   def interpolate_task(self, task, interpolator, time, axis, node):
@@ -167,7 +192,6 @@ class App(ShowBase):
     self.taskMgr.remove("zoom")
     offset = 0.3
     self.interpolate("zoom", self.picsNode, 'y', offset)
-#    self.interpolate("zoom", self.picsNode, 'z', -offset * tan(self.vfov()/2) * 0.7)
     self.hand.node.show()
     self.fadeThumbs(1)
 
@@ -183,6 +207,7 @@ class App(ShowBase):
     z = min(0, max(-0.2, -pos.z*2))
     y_scale = self.top(self.hand.node.getPos().y)
     self.hand.node.setPos(pos.x, z, min(1, pos.y) * y_scale)
+    self.cursor_ray.setDirection(self.hand.node.getPos() - self.cam.getPos())
 
   def touch_down(self, touch):
     self.taskMgr.remove("inertia")
