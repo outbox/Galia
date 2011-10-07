@@ -7,52 +7,14 @@ from time import clock
 sys.path.append("./build/pynui")
 from pynui import *
 
-from TouchCanvas import *
+from app.TouchCanvas import *
+from app.Hand import *
+from app.CubicInterpolator import *
 
 from panda3d.core import *
 from direct.interval.MetaInterval import Sequence
 from direct.showbase.ShowBase import ShowBase
 from direct.task import Task
-
-class CubicInterpolator:
-  def __init__(self, p0, p1, v0):
-    self.a = -2*p1 + v0 + 2*p0
-    self.b = p1 - self.a - v0 - p0
-    self.c = v0
-    self.d = p0
-    
-  def __call__(self, t):
-    t2 = t*t
-    t3 = t2*t
-    return self.a * t3 + self.b * t2 + self.c * t + self.d
-
-class Hand:
-  def __init__(self, app):
-    size = 0.06
-    maker = CardMaker("")
-    maker.setFrame(-size/2, size/2, -size, 0)
-
-    def texture(file):
-      t = loader.loadTexture(file)
-      t.setWrapU(Texture.WMBorderColor)
-      t.setWrapV(Texture.WMBorderColor)
-      t.setBorderColor(VBase4())
-      return t
-    self.texture = texture("resources/hand.png")
-    self.drag_texture = texture("resources/hand-drag.png")
-
-    self.node = NodePath(maker.generate())
-    self.node.setTexture(self.texture)
-    self.node.setTransparency(TransparencyAttrib.MAlpha, 1)
-    self.node.setTwoSided(True)
-    self.node.reparentTo(app.render)
-    self.node.hide()
-
-  def set_side(self, side):
-    self.node.setScale(1 if side == Skeleton.right else -1, 1, 1)
-
-  def set_drag(self, drag):
-    self.node.setTexture(self.drag_texture if drag else self.texture)
 
 CollisionMask = BitMask32(0x10)
 
@@ -109,7 +71,6 @@ class App(ShowBase):
       thumb.setTexture(texture)
       thumb.setTransparency(TransparencyAttrib.MAlpha, 1)
       thumb.setPos(left, 0, 0)
-      thumb.setTag('index', str(index))
       thumb.setCollideMask(CollisionMask)
 
       left += self.pic_stride
@@ -162,7 +123,6 @@ class App(ShowBase):
     if self.collision_queue.getNumEntries() > 0:
       self.collision_queue.sortEntries()
       picked = self.collision_queue.getEntry(0).getIntoNodePath()
-      print "collision", picked.getTag('index')
 
     return Task.cont
 
