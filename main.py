@@ -81,6 +81,7 @@ class App(ShowBase):
 
     maker = CardMaker("")
     frameRatio = self.camLens.getAspectRatio()
+    print frameRatio
     left = 0
     files = [self.image_path + f for f in os.listdir(self.image_path)][0:6]
     before = clock()
@@ -92,17 +93,18 @@ class App(ShowBase):
       except:
         continue
       texture.setMinfilter(Texture.FTLinearMipmapLinear)
-      texture.setAnisotropicDegree(4)
+      texture.setWrapU(Texture.WMBorderColor)
+      texture.setWrapV(Texture.WMBorderColor)
+      texture.setBorderColor(VBase4())
+      
       textureRatio = texture.getOrigFileXSize() * 1.0 / texture.getOrigFileYSize()
-      scale = textureRatio/frameRatio if textureRatio < frameRatio else 1
-      maker.setFrame(-scale, scale, -scale / textureRatio, scale / textureRatio)
-
-      pic = NodePath(maker.generate())
+      
+      pic = createCard(-1, 1, -1/frameRatio, 1/frameRatio, textureRatio)
       pic.reparentTo(self.picsNode)
       pic.setTexture(texture)
       pic.setPos(left, 0, 0)
       
-      thumb = NodePath(maker.generate())
+      thumb = createCard(-1, 1, -1/frameRatio, 1/frameRatio, textureRatio)
       thumb.reparentTo(self.thumbsNode)
       thumb.setTexture(texture)
       thumb.setTransparency(TransparencyAttrib.MAlpha, 1)
@@ -160,8 +162,8 @@ class App(ShowBase):
     if self.collision_queue.getNumEntries() > 0:
       self.collision_queue.sortEntries()
       picked = self.collision_queue.getEntry(0).getIntoNodePath()
-      print picked.getTag('pic-index')
-    
+      print "collision", picked.getTag('index')
+
     return Task.cont
 
   def interpolate_task(self, task, interpolator, time, axis, node):
@@ -268,12 +270,30 @@ class App(ShowBase):
     symmetry = Mat4.translateMat(0,0,-z) * Mat4.scaleMat(1,1,-1) * Mat4.translateMat(0,0,z)
     cameraNP.setMat(base.cam.getMat() * symmetry)
 
-    shader = Shader.load("resources/shaders/reflection.cg", Shader.SLCg)
-    card.setShader(shader)
+    card.setShader(loadShader('reflection'))
     card.setTexture(buffer.getTexture())
 
     root.reparentTo(render)
     root.setMat(Mat4.rotateMat(-90, VBase3.unitX()) * Mat4.translateMat(0, 0, z))
+
+def loadShader(name):
+  return Shader.load("resources/shaders/" + name+ ".cg", Shader.SLCg)
+
+def createCard(left, right, bottom, top, uvRatio=1):
+  maker = CardMaker("")
+  maker.setFrame(left, right, bottom, top)
+  ratio = (right - left) * 1.0 / (top - bottom)
+  if ratio > uvRatio:
+    diff = (ratio - uvRatio) / 2
+    maker.setUvRange(
+      Point2(-diff, 0),
+      Point2(1 + diff , 1))
+  else:
+    diff = (1/ratio - 1/uvRatio) / 2
+    maker.setUvRange(
+      Point2(0, -diff),
+      Point2(1, 1 + diff))
+  return NodePath(maker.generate())
 
 if __name__ == '__main__':
   loadPrcFile("local-config.prc")
