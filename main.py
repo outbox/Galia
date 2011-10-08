@@ -10,13 +10,13 @@ from pynui import *
 from app.TouchCanvas import *
 from app.Hand import *
 from app.CubicInterpolator import *
+from app.Thumbs import *
+from app.PandaHelper import *
 
 from panda3d.core import *
 from direct.interval.MetaInterval import Sequence
 from direct.showbase.ShowBase import ShowBase
 from direct.task import Task
-
-CollisionMask = BitMask32(0x10)
 
 class App(ShowBase):
   def __init__(self):
@@ -38,17 +38,14 @@ class App(ShowBase):
     self.camLens.setFar(2)
 
     self.picsNode = render.attachNewNode("Pics")
-    self.thumbsNode = render.attachNewNode("Thumbs")
-    self.thumbsNode
-
+    self.thumbs = Thumbs()
+    
     maker = CardMaker("")
     frameRatio = self.camLens.getAspectRatio()
-    print frameRatio
     left = 0
     files = [self.image_path + f for f in os.listdir(self.image_path)][0:6]
     before = clock()
     print "Loading", len(files), "files..."
-    index = 0
     for file in files:
       try:
          texture = loader.loadTexture(file)
@@ -57,7 +54,7 @@ class App(ShowBase):
       texture.setMinfilter(Texture.FTLinearMipmapLinear)
       texture.setWrapU(Texture.WMBorderColor)
       texture.setWrapV(Texture.WMBorderColor)
-      texture.setBorderColor(VBase4())
+      texture.setBorderColor(VBase4(0,0,0,0))
       
       textureRatio = texture.getOrigFileXSize() * 1.0 / texture.getOrigFileYSize()
       
@@ -66,20 +63,9 @@ class App(ShowBase):
       pic.setTexture(texture)
       pic.setPos(left, 0, 0)
       
-      thumb = createCard(-1, 1, -1/frameRatio, 1/frameRatio, textureRatio)
-      thumb.reparentTo(self.thumbsNode)
-      thumb.setTexture(texture)
-      thumb.setTransparency(TransparencyAttrib.MAlpha, 1)
-      thumb.setPos(left, 0, 0)
-      thumb.setCollideMask(CollisionMask)
+      self.thumbs.add(texture)
 
       left += self.pic_stride
-      index += 1
-
-    scale = min(2/left, 0.1)
-    self.thumbsNode.setScale(scale)
-    count = self.thumbsNode.getNumChildren()
-    self.thumbsNode.setPos(-scale * count, 0, self.top() * (1 - scale))
       
     print "Loaded in", str(clock() - before) + "s"
 
@@ -98,15 +84,20 @@ class App(ShowBase):
 
     base.cTrav = CollisionTraverser('CollisionTraverser')
 
-    pickerNode = CollisionNode('mouseRay')
-    pickerNode.setFromCollideMask(CollisionMask)
+    pickerNode = CollisionNode('cursor')
+    pickerNode.setFromCollideMask(Thumbs.CollisionMask)
     self.cursor_ray = CollisionRay(self.cam.getPos(), Vec3.unitZ())
     pickerNode.addSolid(self.cursor_ray)
     pickerNP = render.attachNewNode(pickerNode)
-    self.collision_queue = CollisionHandlerQueue()
-    base.cTrav.addCollider(pickerNP, self.collision_queue)
+    self.collision_handler = CollisionHandlerEvent()
+    self.collision_handler.addInPattern('%fn-into-%in')
+    self.collision_handler.addAgainPattern('%fn-again-%in')
+    self.collision_handler.addOutPattern('%fn-out-%in')
+    base.cTrav.addCollider(pickerNP, self.collision_handler)
 
-    self.taskMgr.add(self.update, "UpdateTask")
+    self.taskMgr.add(self.update, 'UpdateTask')
+
+    self.accept('goto-item', self.goto_item)
 
   def top(self, y = 0):
     return (y - self.cam.getPos().y) * tan(self.vfov()/2)
@@ -120,10 +111,6 @@ class App(ShowBase):
 
     base.cTrav.traverse(render)
 
-    if self.collision_queue.getNumEntries() > 0:
-      self.collision_queue.sortEntries()
-      picked = self.collision_queue.getEntry(0).getIntoNodePath()
-
     return Task.cont
 
   def interpolate_task(self, task, interpolator, time, axis, node):
@@ -133,36 +120,25 @@ class App(ShowBase):
     node.setPos(v)
     return Task.cont if a < 1 else Task.done
 
-  def fade_thumbs_task(self, task, start, end, time):
-    a = min(1, task.time/time)
-    for node in self.thumbsNode.getChildren():
-      node.setSa(a*end + (1-a)*start)
-    return Task.cont if a < 1 else Task.done
-
   def interpolate(self, name, node, axis, to, speed=0, time=0.5):
     v = node.getPos()
     interp = CubicInterpolator(v.__getattribute__(axis), to, speed)
     task = PythonTask(self.interpolate_task, name)
     self.taskMgr.add(task, extraArgs=[task, interp, time, axis, node])
-
-  def fadeThumbs(self, to, time=0.5):
-    self.taskMgr.remove("Fade")
-    task = PythonTask(self.fade_thumbs_task, "Fade")
-    self.taskMgr.add(task, extraArgs=[task, self.thumbsNode.getChildren()[0].getSa(), to, time])
-    
+  
   def cursor_appear(self):
     self.taskMgr.remove("zoom")
     offset = 0.3
     self.interpolate("zoom", self.picsNode, 'y', offset)
     self.hand.node.show()
-    self.fadeThumbs(1)
+    self.thumbs.fade(1)
 
   def cursor_disappear(self):
     self.taskMgr.remove("zoom")
     self.interpolate("zoom", self.picsNode, 'y', 0)
     self.interpolate("zoom", self.picsNode, 'z', 0)
     self.hand.node.hide()
-    self.fadeThumbs(0)
+    self.thumbs.fade(0)
 
   def cursor_move(self, pos, user, side):
     self.hand.set_side(side)
@@ -205,6 +181,10 @@ class App(ShowBase):
       target = -target_index * self.pic_stride
       self.interpolate("inertia", self.picsNode, 'x', target, speed)
 
+  def goto_item(self, index):
+    target = -index * self.pic_stride
+    self.interpolate("inertia", self.picsNode, 'x', target)
+
   def setupMirror(self):
     name = 'mirror'
     width = height = 10
@@ -235,25 +215,6 @@ class App(ShowBase):
 
     root.reparentTo(render)
     root.setMat(Mat4.rotateMat(-90, VBase3.unitX()) * Mat4.translateMat(0, 0, z))
-
-def loadShader(name):
-  return Shader.load("resources/shaders/" + name+ ".cg", Shader.SLCg)
-
-def createCard(left, right, bottom, top, uvRatio=1):
-  maker = CardMaker("")
-  maker.setFrame(left, right, bottom, top)
-  ratio = (right - left) * 1.0 / (top - bottom)
-  if ratio > uvRatio:
-    diff = (ratio - uvRatio) / 2
-    maker.setUvRange(
-      Point2(-diff, 0),
-      Point2(1 + diff , 1))
-  else:
-    diff = (1/ratio - 1/uvRatio) / 2
-    maker.setUvRange(
-      Point2(0, -diff),
-      Point2(1, 1 + diff))
-  return NodePath(maker.generate())
 
 if __name__ == '__main__':
   loadPrcFile("local-config.prc")
