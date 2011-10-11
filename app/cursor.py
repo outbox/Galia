@@ -1,7 +1,7 @@
 from panda3d.core import *
 from pynui import *
 
-class Hand:
+class Cursor:
   def __init__(self, app):
     size = 0.06
     maker = CardMaker("")

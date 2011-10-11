@@ -1,7 +1,7 @@
 from panda3d.core import *
 from direct.task import Task
 from direct.showbase.DirectObject import DirectObject
-from app.PandaHelper import *
+from app.helper import *
 
 class Thumbs(DirectObject):
   CollisionMask = BitMask32(0x10)
@@ -28,15 +28,14 @@ class Thumbs(DirectObject):
     stride = 2.05
     frameRatio = base.camLens.getAspectRatio()
     textureRatio = texture.getOrigFileXSize() * 1.0 / texture.getOrigFileYSize()
-    thumb = createCard(-1, 1, -1/frameRatio, 1/frameRatio, textureRatio, 'thumb')
+    thumb = create_card(-1, 1, -1/frameRatio, 1/frameRatio, textureRatio, 'thumb')
     self.index[thumb] = self.node.getNumChildren()
     thumb.setTexture(texture)
-    thumb.setTransparency(TransparencyAttrib.MAlpha, 1)
     thumb.setPos(self.node.getNumChildren() * stride, 0, 0);
     thumb.setCollideMask(Thumbs.CollisionMask)
     thumb.reparentTo(self.node)
     thumb.setTransparency(TransparencyAttrib.MAlpha, 1)
-    thumb.setShader(loadShader('image'))
+    thumb.setShader(load_shader('image'))
 
     scale = min(2/(self.node.getNumChildren() * stride), 0.1)
     self.node.setScale(scale)

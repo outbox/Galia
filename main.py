@@ -1,17 +1,16 @@
 import sys
-import os
+sys.path.append("./build/pynui")
+from os import listdir
 from pprint import pprint
 from math import *
 from time import clock
 
-sys.path.append("./build/pynui")
 from pynui import *
-
-from app.TouchCanvas import *
-from app.Hand import *
-from app.CubicInterpolator import *
-from app.Thumbs import *
-from app.PandaHelper import *
+from app.hands import *
+from app.cursor import *
+from app.thumbs import *
+from app.helper import *
+from app.math import *
 
 from panda3d.core import *
 from direct.interval.MetaInterval import Sequence
@@ -43,7 +42,7 @@ class App(ShowBase):
     maker = CardMaker("")
     frameRatio = self.camLens.getAspectRatio()
     left = 0
-    files = [self.image_path + f for f in os.listdir(self.image_path)][0:6]
+    files = [self.image_path + f for f in listdir(self.image_path)][0:6]
     before = clock()
     print "Loading", len(files), "files..."
     for file in files:
@@ -58,7 +57,7 @@ class App(ShowBase):
       
       textureRatio = texture.getOrigFileXSize() * 1.0 / texture.getOrigFileYSize()
       
-      pic = createCard(-1, 1, -1/frameRatio, 1/frameRatio, textureRatio)
+      pic = create_card(-1, 1, -1/frameRatio, 1/frameRatio, textureRatio)
       pic.reparentTo(self.picsNode)
       pic.setTexture(texture)
       pic.setPos(left, 0, 0)
@@ -69,17 +68,15 @@ class App(ShowBase):
       
     print "Loaded in", str(clock() - before) + "s"
 
-    self.hand = Hand(self)
+    self.cursor = Cursor(self)
+    self.cursor_hand = None
+    self.hand_tracker = HandTracker()
+    self.accept('new-hand', self.new_hand)
+    self.accept('lost-hand', self.lost_hand)
+    self.accept('hand-grab-start', self.hand_grab_start)
+    self.accept('hand-grab-end', self.hand_grab_end)
+    self.accept('hand-move', self.hand_move)
     
-    self.current_touch = None
-    self.touch_canvas = TouchCanvas()
-    self.touch_canvas.touch_down = self.touch_down
-    self.touch_canvas.touch_move = self.touch_move
-    self.touch_canvas.touch_up = self.touch_up
-    self.touch_canvas.cursor_move = self.cursor_move
-    self.touch_canvas.cursor_appear = self.cursor_appear
-    self.touch_canvas.cursor_disappear = self.cursor_disappear
-
     self.setupMirror()
 
     base.cTrav = CollisionTraverser('CollisionTraverser')
@@ -107,7 +104,7 @@ class App(ShowBase):
     
   def update(self, task):
     self.nui.update()
-    self.touch_canvas.update(self.nui.users)
+    self.hand_tracker.update(self.nui.users)
 
     base.cTrav.traverse(render)
 
@@ -125,61 +122,65 @@ class App(ShowBase):
     interp = CubicInterpolator(v.__getattribute__(axis), to, speed)
     task = PythonTask(self.interpolate_task, name)
     self.taskMgr.add(task, extraArgs=[task, interp, time, axis, node])
-  
-  def cursor_appear(self):
+
+  def new_hand(self, hand):
+    if self.cursor_hand: return
+    self.cursor_hand = hand
     self.taskMgr.remove("zoom")
     offset = 0.3
     self.interpolate("zoom", self.picsNode, 'y', offset)
-    self.hand.node.show()
+    self.cursor.node.show()
     self.thumbs.fade(1)
 
-  def cursor_disappear(self):
+  def lost_hand(self, hand):
+    if hand != self.cursor_hand: return
+    if len(self.hand_tracker.hands) > 0:
+      self.cursor_hand = self.hand_tracker.hands.values()[0]
+      if self.cursor_hand.grab: self.hand_grab_start(self.cursor_hand)
+      return
+    self.cursor_hand = None
     self.taskMgr.remove("zoom")
     self.interpolate("zoom", self.picsNode, 'y', 0)
     self.interpolate("zoom", self.picsNode, 'z', 0)
-    self.hand.node.hide()
+    self.cursor.node.hide()
     self.thumbs.fade(0)
 
-  def cursor_move(self, pos, user, side):
-    self.hand.set_side(side)
-    z = min(0, max(-0.2, -pos.z*2))
-    y_scale = self.top(self.hand.node.getPos().y)
-    self.hand.node.setPos(pos.x, z, min(1, pos.y) * y_scale)
-    self.cursor_ray.setDirection(self.hand.node.getPos() - self.cam.getPos())
-
-  def touch_down(self, touch):
-    self.taskMgr.remove("inertia")
-    if self.current_touch is None and touch.user_side == self.touch_canvas.cursor:
-      self.current_touch = touch
-      self.hand.set_drag(True)
-
-  def touch_move(self, touch):
-    if touch != self.current_touch: return
-    if len(touch.positions) > 1:
-      delta = touch.positions[-1].x - touch.positions[-2].x
+  def hand_move(self, hand):
+    if hand != self.cursor_hand: return
+    if hand.grab:
+      delta = hand.positions[-1].x - hand.positions[-2].x if len(hand.positions) > 1 else 0
       v = self.picsNode.getPos()
       self.picsNode.setPos(v.x + delta, v.y, v.z)
-
-  def index_for_position(self, pos):
-    return floor(-pos / self.pic_stride + 0.5)
     
-  def touch_up(self, touch):
-    if touch == self.current_touch:
-      touches = [t for t in self.touch_canvas.touches.values() if t.user_side == self.touch_canvas.cursor]
-      self.current_touch = touches[0] if touches else None
+    self.cursor.set_side(hand.user_side[1])
+    pos = hand.positions[-1]
+    z = min(0, max(-0.2, -pos.z*2))
+    y_scale = self.top(self.cursor.node.getPos().y)
+    self.cursor.node.setPos(pos.x, z, min(1, pos.y) * y_scale)
+    self.cursor_ray.setDirection(self.cursor.node.getPos() - self.cam.getPos())
 
-    if not self.current_touch:
-      self.hand.set_drag(False)
-      start = self.picsNode.getPos().x
-      speed = touch.speeds[-1].x
-      target_index = self.index_for_position(start)
-      delta = touch.positions[-1].x - touch.positions[0].x
-      if fabs(speed) > 2 and target_index == self.index_for_position(start - delta):
-        target_index += 1 if speed < 0 else -1
-      speed = min(fabs(speed), 8) * (1 if speed > 0 else -1)
-      target_index = max(0, min(self.picsNode.getNumChildren()-1, target_index))
-      target = -target_index * self.pic_stride
-      self.interpolate("inertia", self.picsNode, 'x', target, speed)
+  def hand_grab_start(self, hand):
+    if hand != self.cursor_hand: return
+    self.taskMgr.remove("inertia")
+    self.cursor.set_drag(True)
+
+  def hand_grab_end(self, hand):
+    if hand != self.cursor_hand: return
+    
+    def index_for_position(pos):
+      return floor(-pos / self.pic_stride + 0.5)
+
+    self.cursor.set_drag(False)
+    start = self.picsNode.getPos().x
+    speed = hand.speeds[-1].x
+    target_index = index_for_position(start)
+    delta = hand.positions[-1].x - hand.positions[0].x
+    if fabs(speed) > 2 and target_index == index_for_position(start - delta):
+      target_index += 1 if speed < 0 else -1
+    speed = min(fabs(speed), 8) * (1 if speed > 0 else -1)
+    target_index = max(0, min(self.picsNode.getNumChildren()-1, target_index))
+    target = -target_index * self.pic_stride
+    self.interpolate("inertia", self.picsNode, 'x', target, speed)
 
   def goto_item(self, index):
     target = -index * self.pic_stride
@@ -210,7 +211,7 @@ class App(ShowBase):
     symmetry = Mat4.translateMat(0,0,-z) * Mat4.scaleMat(1,1,-1) * Mat4.translateMat(0,0,z)
     cameraNP.setMat(base.cam.getMat() * symmetry)
 
-    card.setShader(loadShader('reflection'))
+    card.setShader(load_shader('reflection'))
     card.setTexture(buffer.getTexture())
 
     root.reparentTo(render)

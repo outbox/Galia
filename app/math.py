@@ -1,3 +1,6 @@
+def lerp(a, b, t):
+  return a * (1 - t) + b * t
+
 class CubicInterpolator:
   def __init__(self, p0, p1, v0):
     self.a = -2*p1 + v0 + 2*p0
