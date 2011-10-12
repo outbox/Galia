@@ -40,7 +40,7 @@ class HandTracker:
     
     mouse = base.mouseWatcherNode
     if mouse.hasMouse():
-      pos = Vec3(mouse.getMouseX(), mouse.getMouseY(), 0 if mouse.isButtonDown(MouseButton.one()) else 0.1)
+      pos = Vec3(mouse.getMouseX(), mouse.getMouseY(), 0 if mouse.isButtonDown(MouseButton.one()) else 0.01)
       self.create_or_update_hand(999, Skeleton.right, pos)
       
     for (user_side, hand) in self.hands.items():
