@@ -38,10 +38,15 @@ class HandTracker:
       self.update_user_side(user, skel, Skeleton.right)
       self.update_user_side(user, skel, Skeleton.left)
     
+    mouse = base.mouseWatcherNode
+    if mouse.hasMouse():
+      pos = Vec3(mouse.getMouseX(), mouse.getMouseY(), 0 if mouse.isButtonDown(MouseButton.one()) else 0.1)
+      self.create_or_update_hand(999, Skeleton.right, pos)
+      
     for (user_side, hand) in self.hands.items():
       if hand.generation != self.generation:
         del self.hands[user_side]
-        del self.shoulders[user_side]
+        if user_side in self.shoulders: del self.shoulders[user_side]
         if hand.grab: messenger.send('hand-grab-end', [hand])
         messenger.send('lost-hand', [hand])
 
@@ -60,7 +65,10 @@ class HandTracker:
     pos.x /= self.size.x
     pos.y /= self.size.y
 
-    if pos.y < -1: return
+    self.create_or_update_hand(user, side, pos)
+
+  def create_or_update_hand(self, user, side, pos):
+    if pos.y <= -1: return
 
     hand = self.hands.get((user, side), None)
     if not hand:
