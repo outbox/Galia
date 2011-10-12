@@ -9,7 +9,7 @@ class Thumbs(DirectObject):
 
   def __init__(self):
     self.start_task = PythonTask(self.start_interaction, 'ThumbsStartInteraction')
-    self.start_task.setDelay(1)
+    self.start_task.setDelay(0.5)
     self.stop_task = PythonTask(self.stop_interaction, 'ThumbsStopInteraction')
     self.stop_task.setDelay(1)
 
@@ -29,7 +29,7 @@ class Thumbs(DirectObject):
     stride = 2.05
     frameRatio = base.camLens.getAspectRatio()
     textureRatio = texture.getOrigFileXSize() * 1.0 / texture.getOrigFileYSize()
-    thumb = create_card(-1, 1, -1/frameRatio, 1/frameRatio, textureRatio, 'thumb')
+    thumb = create_card(-1, 1, -1/frameRatio, 1/frameRatio, textureRatio, 'thumb', top_margin=0.2)
     self.index[thumb] = self.node.getNumChildren()
     thumb.setTexture(texture)
     thumb.setPos(self.node.getNumChildren() * stride, 0, 0);
