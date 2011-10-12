@@ -10,7 +10,6 @@ from app.hands import *
 from app.cursor import *
 from app.thumbs import *
 from app.helper import *
-from app.math import *
 
 from panda3d.core import *
 from direct.interval.MetaInterval import Sequence
@@ -105,30 +104,14 @@ class App(ShowBase):
   def update(self, task):
     self.nui.update()
     self.hand_tracker.update(self.nui.users)
-
-    base.cTrav.traverse(render)
-
     return Task.cont
-
-  def interpolate_task(self, task, interpolator, time, axis, node):
-    a = min(1, task.time/time)
-    v = node.getPos()
-    v.__setattr__(axis, interpolator(a))
-    node.setPos(v)
-    return Task.cont if a < 1 else Task.done
-
-  def interpolate(self, name, node, axis, to, speed=0, time=0.5):
-    v = node.getPos()
-    interp = CubicInterpolator(v.__getattribute__(axis), to, speed)
-    task = PythonTask(self.interpolate_task, name)
-    self.taskMgr.add(task, extraArgs=[task, interp, time, axis, node])
 
   def new_hand(self, hand):
     if self.cursor_hand: return
     self.cursor_hand = hand
-    self.taskMgr.remove("zoom")
+    self.taskMgr.remove('zoom')
     offset = 0.3
-    self.interpolate("zoom", self.picsNode, 'y', offset)
+    cubic_interpolate_pos('zoom', self.picsNode, 'y', offset)
     self.cursor.node.show()
     self.thumbs.fade(1)
 
@@ -140,8 +123,8 @@ class App(ShowBase):
       return
     self.cursor_hand = None
     self.taskMgr.remove("zoom")
-    self.interpolate("zoom", self.picsNode, 'y', 0)
-    self.interpolate("zoom", self.picsNode, 'z', 0)
+    cubic_interpolate_pos("zoom", self.picsNode, 'y', 0)
+    cubic_interpolate_pos("zoom", self.picsNode, 'z', 0)
     self.cursor.node.hide()
     self.thumbs.fade(0)
 
@@ -180,11 +163,11 @@ class App(ShowBase):
     speed = min(fabs(speed), 8) * (1 if speed > 0 else -1)
     target_index = max(0, min(self.picsNode.getNumChildren()-1, target_index))
     target = -target_index * self.pic_stride
-    self.interpolate("inertia", self.picsNode, 'x', target, speed)
+    cubic_interpolate_pos("inertia", self.picsNode, 'x', target, speed)
 
   def goto_item(self, index):
     target = -index * self.pic_stride
-    self.interpolate("inertia", self.picsNode, 'x', target)
+    cubic_interpolate_pos("inertia", self.picsNode, 'x', target)
 
   def setupMirror(self):
     name = 'mirror'

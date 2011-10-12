@@ -2,6 +2,7 @@ from panda3d.core import *
 from direct.task import Task
 from direct.showbase.DirectObject import DirectObject
 from app.helper import *
+from math import *
 
 class Thumbs(DirectObject):
   CollisionMask = BitMask32(0x10)
@@ -42,15 +43,9 @@ class Thumbs(DirectObject):
     count = self.node.getNumChildren()
     self.node.setPos(-scale * count, 0, base.top() * (1 - scale))
 
-  def fade_task(self, task, start, end, time):
-    a = min(1, task.time/time)
-    self.node.setSa(a*end + (1-a)*start)
-    return Task.cont if a < 1 else Task.done
-
   def fade(self, to, time=0.5):
-    base.taskMgr.remove('Fade')
-    task = PythonTask(self.fade_task, 'Fade')
-    base.taskMgr.add(task, extraArgs=[task, self.node.getSa(), to, time])
+    base.taskMgr.remove('thumbs-fade')
+    cubic_interpolate('thumbs-fade', self.node.setSa, self.node.getSa(), to, time=time)
   
   def cursor_into(self, entry):
     base.taskMgr.remove(self.stop_task)
@@ -72,7 +67,21 @@ class Thumbs(DirectObject):
 
   def stop_interaction(self, task):
     self.interacting = False
+    self.updateThumbs();
 
   def goto(self, thumb):
+    self.updateThumbs();
     if thumb:
       messenger.send('goto-item', [self.index[thumb]])
+
+  def updateThumbs(self):
+    taskName = 'thumbs-highlight'
+    base.taskMgr.remove(taskName)
+    for thumb in self.node.getChildren():
+      selected = self.interacting and thumb == self.hover_thumb
+      targetScale = 1.2 if selected else 1
+      if targetScale != thumb.getScale().x:
+        cubic_interpolate(taskName, thumb.setScale, thumb.getScale().x, targetScale, time=0.2)
+      pos = thumb.getPos()
+      pos.y = -0.01 if selected else 0
+      thumb.setPos(pos)
