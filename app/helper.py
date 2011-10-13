@@ -40,13 +40,14 @@ def interpolate_task(task, interpolator, time, setter):
   setter(interpolator(a))
   return Task.cont if a < 1 else Task.done
 
-def interpolate(name, setter, interpolator, time):
+def interpolate(name, setter, interpolator, time, delay=0):
   task = PythonTask(interpolate_task, name)
+  task.setDelay(delay)
   base.taskMgr.add(task, extraArgs=[task, interpolator, time, setter])
   return task
 
-def cubic_interpolate(name, setter, start, end, speed=0, time=0.5):
-  return interpolate(name, setter, cubic_interpolator(start, end, speed), time)
+def cubic_interpolate(name, setter, start, end, speed=0, time=0.5, delay=0):
+  return interpolate(name, setter, cubic_interpolator(start, end, speed), time, delay)
 
 def cubic_interpolate_pos(name, node, axis, end, speed=0, time=0.5):
   cubic_interpolate(name, node_pos_setter(node, axis), node.getPos().__getattribute__(axis), end, speed, time)

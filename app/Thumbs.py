@@ -45,9 +45,9 @@ class Thumbs(DirectObject):
     count = self.node.getNumChildren()
     self.node.setPos(-scale * count, 0, base.top() * (1 - scale))
 
-  def fade(self, to, time=0.5):
+  def fade(self, to, time=0.5, delay=0):
     base.taskMgr.remove('thumbs-fade')
-    cubic_interpolate('thumbs-fade', self.node.setSa, self.node.getSa(), to, time=time)
+    cubic_interpolate('thumbs-fade', self.node.setSa, self.node.getSa(), to, time=time, delay=delay)
   
   def cursor_into(self, entry):
     if not self.enabled: return

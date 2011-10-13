@@ -108,24 +108,35 @@ class App(ShowBase):
     return Task.cont
 
   def new_hand(self, hand):
-    if self.cursor_hand: return
+    if self.cursor_hand:
+      if self.cursor_hand.user_side == hand.user_side:
+        base.taskMgr.remove('LostHandTimeout')
+        self.cursor_hand = hand
+        self.cursor.node.show()
+      return
     self.cursor_hand = hand
     self.taskMgr.remove('zoom')
     offset = 0.3
     cubic_interpolate_pos('zoom', self.picsNode, 'y', offset)
     self.cursor.node.show()
-    self.thumbs.fade(1)
+    self.thumbs.fade(1, time=1, delay=1)
 
   def lost_hand(self, hand):
     if hand != self.cursor_hand: return
+    self.cursor.node.hide()
+    task = PythonTask(self.lost_hand_timeout, 'LostHandTimeout')
+    task.setDelay(0.5)
+    base.taskMgr.add(task)
+
+  def lost_hand_timeout(self, hand):
     if len(self.hand_tracker.hands) > 0:
+      self.cursor.node.show()
       self.cursor_hand = self.hand_tracker.hands.values()[0]
       if self.cursor_hand.grab: self.hand_grab_start(self.cursor_hand)
       return
     self.cursor_hand = None
     self.taskMgr.remove("zoom")
     cubic_interpolate_pos("zoom", self.picsNode, 'y', 0)
-    self.cursor.node.hide()
     self.thumbs.fade(0)
 
   def hand_move(self, hand):
