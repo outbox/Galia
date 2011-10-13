@@ -23,6 +23,11 @@ class Cursor:
     self.node.reparentTo(app.render)
     self.node.hide()
 
+    # Always draw cursor on top
+    self.node.setBin("fixed", 40)
+    self.node.setDepthWrite(False)
+    self.node.setDepthTest(False)
+
   def set_side(self, side):
     self.node.setScale(1 if side == Skeleton.right else -1, 1, 1)
 
