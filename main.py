@@ -75,7 +75,8 @@ class App(ShowBase):
     self.accept('hand-grab-start', self.hand_grab_start)
     self.accept('hand-grab-end', self.hand_grab_end)
     self.accept('hand-move', self.hand_move)
-    
+    self.dragging = False
+
     self.setupMirror()
 
     base.cTrav = CollisionTraverser('CollisionTraverser')
@@ -130,7 +131,7 @@ class App(ShowBase):
 
   def hand_move(self, hand):
     if hand != self.cursor_hand: return
-    if hand.grab:
+    if self.dragging:
       delta = hand.positions[-1].x - hand.positions[-2].x if len(hand.positions) > 1 else 0
       v = self.picsNode.getPos()
       self.picsNode.setPos(v.x + delta, v.y, v.z)
@@ -144,8 +145,11 @@ class App(ShowBase):
 
   def hand_grab_start(self, hand):
     if hand != self.cursor_hand: return
-    self.taskMgr.remove("inertia")
-    self.cursor.set_drag(True)
+    if self.thumbs.hover_thumb is None:
+      self.thumbs.enabled = False
+      self.dragging = True
+      self.taskMgr.remove("inertia")
+      self.cursor.set_drag(True)
 
   def hand_grab_end(self, hand):
     if hand != self.cursor_hand: return
@@ -153,6 +157,8 @@ class App(ShowBase):
     def index_for_position(pos):
       return floor(-pos / self.pic_stride + 0.5)
 
+    self.thumbs.enabled = True
+    self.dragging = False
     self.cursor.set_drag(False)
     start = self.picsNode.getPos().x
     speed = hand.speeds[-1].x

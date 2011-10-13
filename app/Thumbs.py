@@ -18,12 +18,14 @@ class Thumbs(DirectObject):
     self.node.setSa(0)
     
     self.accept('cursor-into-thumb', self.cursor_into)
+    self.accept('cursor-again-thumb', self.cursor_again)
     self.accept('cursor-out-thumb', self.cursor_out)
 
     self.index = {}
 
     self.interacting = False
     self.hover_thumb = None
+    self.enabled = True
 
   def add(self, texture):
     stride = 2.05
@@ -48,13 +50,18 @@ class Thumbs(DirectObject):
     cubic_interpolate('thumbs-fade', self.node.setSa, self.node.getSa(), to, time=time)
   
   def cursor_into(self, entry):
+    if not self.enabled: return
     base.taskMgr.remove(self.stop_task)
     self.hover_thumb = entry.getIntoNodePath()
     if not self.interacting:
-      base.taskMgr.remove(self.start_task)
-      base.taskMgr.add(self.start_task)
+      if self.start_task not in base.taskMgr.getAllTasks():
+        base.taskMgr.add(self.start_task)
     else:
       self.goto(self.hover_thumb)
+
+  def cursor_again(self, entry):
+    if not self.interacting and self.start_task not in base.taskMgr.getAllTasks():
+      self.cursor_into(entry)
 
   def cursor_out(self, entry):
     self.hover_thumb = None
