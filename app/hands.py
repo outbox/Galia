@@ -25,7 +25,7 @@ class Hand(object):
 
 class HandTracker:
   def __init__(self):
-    self.size = Vec2(0.25, 0.25)
+    self.size = Vec2(0.25, 0.15)
     self.origin = Vec3(0, 0, -0.35)
     self.shoulders = {}
     self.hands = {}
@@ -39,7 +39,7 @@ class HandTracker:
       self.update_user_side(user, skel, Skeleton.left)
     
     mouse = base.mouseWatcherNode
-    if mouse.hasMouse():
+    if mouse.hasMouse() and not (mouse.getMouseX() == -1 and mouse.getMouseY() == 1):
       pos = Vec3(mouse.getMouseX(), mouse.getMouseY(), 0 if mouse.isButtonDown(MouseButton.one()) else 0.01)
       self.create_or_update_hand(999, Skeleton.right, pos)
       
