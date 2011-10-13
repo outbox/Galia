@@ -2,6 +2,7 @@ from time import clock
 from pynui import *
 from helper import *
 from panda3d.core import *
+from math import *
 
 class Hand(object):
   def __init__(self, user_side, pos):
@@ -25,18 +26,19 @@ class Hand(object):
 
 class HandTracker:
   def __init__(self):
-    self.size = Vec2(0.25, 0.15)
+    self.size = Vec2(0.25, 0.2)
     self.origin = Vec3(0, 0, -0.35)
     self.shoulders = {}
     self.hands = {}
     self.generation = 0
-    
+
   def update(self, users):
     self.generation += 1
 
     for (user, skel) in users.items():
-      self.update_user_side(user, skel, Skeleton.right)
-      self.update_user_side(user, skel, Skeleton.left)
+      if self.valid_user(skel):
+        self.update_user_side(user, skel, Skeleton.right)
+        self.update_user_side(user, skel, Skeleton.left)
     
     mouse = base.mouseWatcherNode
     if mouse.hasMouse() and not (mouse.getMouseX() == -1 and mouse.getMouseY() == 1):
@@ -49,6 +51,17 @@ class HandTracker:
         if user_side in self.shoulders: del self.shoulders[user_side]
         if hand.grab: messenger.send('hand-grab-end', [hand])
         messenger.send('lost-hand', [hand])
+
+  def valid_user(self, skel):
+    if all([
+    skel.right.shoulder.valid,
+    skel.left.shoulder.valid,
+    skel.right.hand.valid or skel.left.hand.valid]):
+      right = skel.right.shoulder.position - skel.left.shoulder.position
+      forward = Vec3(-right.z, 0, right.x)
+      forward.normalize()
+      return forward.dot(VBase3.unitZ()) > cos(pi/4)
+    return False
 
   def update_user_side(self, user, skel, side):
     skel_side = side.__get__(skel)

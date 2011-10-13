@@ -28,7 +28,7 @@ class App(ShowBase):
     self.win.setClearColor(VBase4(0, 0, 0, 0))
 
     self.nui = Nui()
-    self.nui.smooth_factor = 0.8
+    self.nui.smooth_factor = 0.9
     
     self.cam.setPos(0, -1, 0)
     self.camLens.setFov(90)
@@ -125,7 +125,6 @@ class App(ShowBase):
     self.cursor_hand = None
     self.taskMgr.remove("zoom")
     cubic_interpolate_pos("zoom", self.picsNode, 'y', 0)
-    cubic_interpolate_pos("zoom", self.picsNode, 'z', 0)
     self.cursor.node.hide()
     self.thumbs.fade(0)
 
@@ -140,12 +139,12 @@ class App(ShowBase):
     pos = hand.positions[-1]
     z = min(0, max(-0.2, -pos.z*2))
     y_scale = self.top(self.cursor.node.getPos().y)
-    self.cursor.node.setPos(pos.x, z, min(1, pos.y) * y_scale)
+    self.cursor.node.setPos(pos.x, z, min(0.97, pos.y) * y_scale)
     self.cursor_ray.setDirection(self.cursor.node.getPos() - self.cam.getPos())
 
   def hand_grab_start(self, hand):
     if hand != self.cursor_hand: return
-    if self.thumbs.hover_thumb is None:
+    if not self.thumbs.interacting and self.thumbs.hover_thumb is None:
       self.thumbs.enabled = False
       self.dragging = True
       self.taskMgr.remove("inertia")
