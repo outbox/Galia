@@ -59,7 +59,7 @@ class OneHandWait(UserState):
   def __init__(self, hand):
     UserState.__init__(self, hand.user)
     self.hand = hand
-    self.timer(0.5, self.timeout)
+    self.timer(0.2, self.timeout)
   
   def timeout(self):
     self.next_state(SlideOne(self.hand))
@@ -76,8 +76,8 @@ class SlideOne(UserState):
   def __init__(self, hand):
     UserState.__init__(self, hand.user)
     self.hand = hand
-    self.timer(0.5, self.timeout)
-    messenger.send('slide', [hand.side])
+    self.timer(1, self.timeout)
+    messenger.send('slide', [hand.side_sign])
 
   def timeout(self):
     self.next_state(SlideRepeat(self.hand))
@@ -90,7 +90,7 @@ class SlideRepeat(UserState):
   def __init__(self, hand):
     UserState.__init__(self, hand.user)
     self.hand = hand
-    self.timer(0.25, self.timeout)
+    self.timer(0.5, self.timeout)
     messenger.send('slide', [hand.side_sign])
 
   def timeout(self):

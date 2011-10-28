@@ -36,10 +36,12 @@ class App(ShowBase):
     self.cam.setPos(cam_pos)
 
     self.picsNode = render.attachNewNode("Pics")
+
+    self.create_wall()
+    self.create_floor()
     
     maker = CardMaker("")
     frameRatio = self.camLens.getAspectRatio()
-    left = 0
     files = [image_path + f for f in listdir(image_path)][0:6]
     before = clock()
     print "Loading", len(files), "files..."
@@ -58,25 +60,15 @@ class App(ShowBase):
       pic.setTransparency(TransparencyAttrib.MAlpha, 1)
       pic.setTexture(texture)
 
-      aspect_ratio = texture.getOrigFileXSize() * 1.0 / texture.getOrigFileYSize()
-      height = self.wall_top() * pic_height_ratio
-      width = height * aspect_ratio
-      
-      if width + (pic_margin + pic_strip_width) * 2 > 2:
-        width = 2 - (pic_margin + pic_strip_width) * 2
-        height = width / aspect_ratio
-
-      pic.setPos(left + width / 2, -0.01, self.wall_top()/2)
-      pic.setScale(width / 2, 1, height / 2)
-      
-      left += width + pic_margin
-      
     print "Loaded in", str(clock() - before) + "s"
 
-    self.picsNode.setPos(-self.picsNode.getChildren()[0].getScale().x, 0, 0) 
+    self.selection = 0
 
-    self.create_wall()
-    self.create_floor()
+    index = 0
+    for pic in self.picsNode.getChildren():
+      pic.setScale(self.pic_scale(pic, index))
+      pic.setPos(self.pic_position(pic, index))
+      index += 1
 
     # base.cTrav = CollisionTraverser('CollisionTraverser')
 
@@ -104,13 +96,46 @@ class App(ShowBase):
 
     self.accept('slide', self.slide)
 
+  def pic_scale(self, pic, index):
+    texture = pic.getTexture()
+    aspect_ratio = texture.getOrigFileXSize() * 1.0 / texture.getOrigFileYSize()
+    height = self.wall_top() * pic_height_ratio
+    width = height * aspect_ratio
+    if width + (pic_margin + pic_strip_width) * 2 > 2:
+      width = 2 - (pic_margin + pic_strip_width) * 2
+      height = width / aspect_ratio
+    return Vec3(width / 2, 1, height / 2)
+
+  def pic_position(self, pic, index):
+    scale = self.pic_scale(pic, index)
+    if index < self.selection - 1:
+      x = -3
+    elif index == self.selection - 1:
+      x = -1 - scale.x + pic_strip_width
+    elif index == self.selection:
+      x = 0
+    elif index == self.selection + 1:
+      x = 1 + scale.x - pic_strip_width
+    else:
+      x = 3
+    return Vec3(x, -0.01, self.wall_top()/2)
+    
   def update(self, task):
-    self.nui.update()
+    #self.nui.update()
     self.hand_tracker.update(self.nui.users)
     return Task.cont
 
   def slide(self, direction):
-    
+    new_selection = self.selection + direction
+    if new_selection < 0 or new_selection >= self.picsNode.getNumChildren():
+      return
+    self.selection = new_selection
+    index = 0
+    for pic in self.picsNode.getChildren():
+      a = pic.getPos()
+      b = self.pic_position(pic, index)
+      interpolate('slide', pic.setPos, cubic_interpolator(a, b, Vec3()), 0.5)
+      index += 1
 
   def wall_top(self):
     return (- self.cam.getPos().y) * tan(vfov()/2) + self.cam.getPos().z

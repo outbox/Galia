@@ -3,15 +3,17 @@ from direct.task import Task
 from math import *
 
 def lerp(a, b, t):
-  return a * (1 - t) + b * t
+  temp = a * (1 - t)
+  temp += b * t # use += to support Panda's Mat4
+  return temp
 
 def cubic_interpolator(p0, p1, v0):
-  a = -2*p1 + v0 + 2*p0
+  a = p1*(-2.0) + v0 + p0*2.0
   b = p1 - a - v0 - p0
   return lambda t: ((a * t + b) * t + v0) * t + p0
 
-def sine_interpolator(p0, p1):
-  return lambda t: p1/2 * (1 - cos(pi*t)) + p0
+def linear_interpolator(a, b):
+  return lambda t: lerp(a, b, t)
 
 def load_shader(name):
   return Shader.load("resources/shaders/" + name+ ".cg", Shader.SLCg)
@@ -32,13 +34,6 @@ def create_card(left, right, bottom, top, uv_ratio=1, name="", top_margin=0):
       Point2(1, 1 + diff + top_margin))
   return NodePath(maker.generate())
 
-def node_pos_setter(node, axis):
-  def f(v):
-    p = node.getPos()
-    p.__setattr__(axis, v)
-    node.setPos(p)
-  return f
-
 def interpolate_task(task, interpolator, time, setter):
   a = min(1, task.time/time)
   setter(interpolator(a))
@@ -53,8 +48,8 @@ def interpolate(name, setter, interpolator, time, delay=0):
 def cubic_interpolate(name, setter, start, end, speed=0, time=0.5, delay=0):
   return interpolate(name, setter, cubic_interpolator(start, end, speed), time, delay)
 
-def cubic_interpolate_pos(name, node, axis, end, speed=0, time=0.5):
-  cubic_interpolate(name, node_pos_setter(node, axis), node.getPos().__getattribute__(axis), end, speed, time)
+def cubic_interpolate_pos(name, node, target, speed=0, time=0.5):
+  cubic_interpolate(name, node.setMat, node.getMat(), target, speed, time)
 
 def vfov():
   return radians(base.camLens.getVfov())
