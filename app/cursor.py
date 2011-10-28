@@ -3,7 +3,7 @@ from pynui import *
 
 class Cursor:
   def __init__(self, app):
-    size = 0.06
+    size = 0.2
     maker = CardMaker("")
     maker.setFrame(-size/2, size/2, -size, 0)
 

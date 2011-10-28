@@ -1,5 +1,6 @@
 from panda3d.core import *
 from direct.task import Task
+from math import *
 
 def lerp(a, b, t):
   return a * (1 - t) + b * t
@@ -8,6 +9,9 @@ def cubic_interpolator(p0, p1, v0):
   a = -2*p1 + v0 + 2*p0
   b = p1 - a - v0 - p0
   return lambda t: ((a * t + b) * t + v0) * t + p0
+
+def sine_interpolator(p0, p1):
+  return lambda t: p1/2 * (1 - cos(pi*t)) + p0
 
 def load_shader(name):
   return Shader.load("resources/shaders/" + name+ ".cg", Shader.SLCg)
@@ -51,3 +55,31 @@ def cubic_interpolate(name, setter, start, end, speed=0, time=0.5, delay=0):
 
 def cubic_interpolate_pos(name, node, axis, end, speed=0, time=0.5):
   cubic_interpolate(name, node_pos_setter(node, axis), node.getPos().__getattribute__(axis), end, speed, time)
+
+def vfov():
+  return radians(base.camLens.getVfov())
+
+def make_filter_buffer(srcbuffer, shader):
+    blurBuffer=base.win.makeTextureBuffer('filter buffer', srcbuffer.getXSize(), srcbuffer.getYSize())
+    blurBuffer.setClearColor(Vec4(0,0,0,0))
+    blurCamera=base.makeCamera2d(blurBuffer)
+    blurScene=NodePath('filter scene')
+    blurCamera.node().setScene(blurScene)
+    card = srcbuffer.getTextureCard()
+    card.reparentTo(blurScene)
+    card.setShader(load_shader(shader))
+    return blurBuffer
+  
+def make_fbo(auxrgba=0):
+    winprops = WindowProperties()
+    props = FrameBufferProperties()
+    props.setRgbColor(1)
+    props.setAlphaBits(1)
+    props.setDepthBits(1)
+    props.setAuxRgba(auxrgba)
+    return base.graphicsEngine.makeOutput(
+         base.pipe, "model buffer", -2,
+         props, winprops,
+         GraphicsPipe.BFSizeTrackHost | GraphicsPipe.BFCanBindEvery | 
+         GraphicsPipe.BFRttCumulative | GraphicsPipe.BFRefuseWindow,
+         base.win.getGsg(), base.win)

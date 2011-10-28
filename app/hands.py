@@ -24,9 +24,20 @@ class Hand(object):
     else:
       self.speeds.append(Vec3())
 
+  @property
+  def side_sign(self):
+    return 1 if self.user_side[1] == Skeleton.right else -1
+
+  @property
+  def user(self):
+    return self.user_side[0]
+
+  @property
+  def side(self):
+    return self.user_side[1]
+
 class HandTracker:
   def __init__(self):
-    self.size = Vec2(0.25, 0.2)
     self.origin = Vec3(0, 0, -0.35)
     self.shoulders = {}
     self.hands = {}
@@ -42,8 +53,8 @@ class HandTracker:
     
     mouse = base.mouseWatcherNode
     if mouse.hasMouse() and not (mouse.getMouseX() == -1 and mouse.getMouseY() == 1):
-      pos = Vec3(mouse.getMouseX(), mouse.getMouseY(), 0 if mouse.isButtonDown(MouseButton.one()) else 0.01)
-      self.create_or_update_hand(999, Skeleton.right, pos)
+      pos = Vec3(mouse.getMouseX(), mouse.getMouseY(), 0)
+      self.create_or_update_hand(999, Skeleton.left if pos.x < 0 else Skeleton.right, pos)
       
     for (user_side, hand) in self.hands.items():
       if hand.generation != self.generation:
@@ -75,14 +86,10 @@ class HandTracker:
     self.shoulders[user, side] = shoulder
 
     pos =  skel_side.hand.position - (shoulder + self.origin)
-    pos.x /= self.size.x
-    pos.y /= self.size.y
-
+    
     self.create_or_update_hand(user, side, pos)
 
   def create_or_update_hand(self, user, side, pos):
-    if pos.y <= -1: return
-
     hand = self.hands.get((user, side), None)
     if not hand:
       hand = Hand((user, side), pos)
