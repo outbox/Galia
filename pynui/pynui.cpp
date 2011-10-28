@@ -28,7 +28,6 @@ struct Skeleton {
 };
 
 struct Nui {
-  nui_data data;
   object main, vec3, mat3;
   object users;
   
@@ -48,7 +47,8 @@ struct Nui {
   }
   
   void update() {
-    get_nui_data(&data);
+    boost::lock_guard<boost::mutex> lock(get_nui_mutex());
+    nui_data& data = get_nui_data();
     
     for (int i=0; i<max_events; ++i) {
       nui_event& event = data.events[i];
@@ -64,30 +64,30 @@ struct Nui {
     for(int i=0;i<max_users;++i) {
       if(data.users[i]) {
         Skeleton skel;
-        joint(skel.head, i, XN_SKEL_HEAD);
-        joint(skel.neck, i, XN_SKEL_NECK);
-        joint(skel.torso, i, XN_SKEL_TORSO);
-        
-        joint(skel.right.shoulder, i, XN_SKEL_RIGHT_SHOULDER);
-        joint(skel.right.elbow, i, XN_SKEL_RIGHT_ELBOW);
-        joint(skel.right.hand, i, XN_SKEL_RIGHT_HAND);
-        joint(skel.right.hip, i, XN_SKEL_RIGHT_HIP);
-        joint(skel.right.knee, i, XN_SKEL_RIGHT_KNEE);
-        joint(skel.right.foot, i, XN_SKEL_RIGHT_FOOT);
-        
-        joint(skel.left.shoulder, i, XN_SKEL_LEFT_SHOULDER);
-        joint(skel.left.elbow, i, XN_SKEL_LEFT_ELBOW);
-        joint(skel.left.hand, i, XN_SKEL_LEFT_HAND);
-        joint(skel.left.hip, i, XN_SKEL_LEFT_HIP);
-        joint(skel.left.knee, i, XN_SKEL_LEFT_KNEE);
-        joint(skel.left.foot, i, XN_SKEL_LEFT_FOOT);
+        joint(data, skel.head, i, XN_SKEL_HEAD);
+        joint(data, skel.neck, i, XN_SKEL_NECK);
+        joint(data, skel.torso, i, XN_SKEL_TORSO);
+
+        joint(data, skel.right.shoulder, i, XN_SKEL_RIGHT_SHOULDER);
+        joint(data, skel.right.elbow, i, XN_SKEL_RIGHT_ELBOW);
+        joint(data, skel.right.hand, i, XN_SKEL_RIGHT_HAND);
+        joint(data, skel.right.hip, i, XN_SKEL_RIGHT_HIP);
+        joint(data, skel.right.knee, i, XN_SKEL_RIGHT_KNEE);
+        joint(data, skel.right.foot, i, XN_SKEL_RIGHT_FOOT);
+
+        joint(data, skel.left.shoulder, i, XN_SKEL_LEFT_SHOULDER);
+        joint(data, skel.left.elbow, i, XN_SKEL_LEFT_ELBOW);
+        joint(data, skel.left.hand, i, XN_SKEL_LEFT_HAND);
+        joint(data, skel.left.hip, i, XN_SKEL_LEFT_HIP);
+        joint(data, skel.left.knee, i, XN_SKEL_LEFT_KNEE);
+        joint(data, skel.left.foot, i, XN_SKEL_LEFT_FOOT);
         
         users[i] = skel;
       }
     }
   }
   
-  void joint(Joint& transform, int user, int jointIndex) {
+  void joint(nui_data& data, Joint& transform, int user, int jointIndex) {
     const float scale = 1.f/1000;
     XnSkeletonJointTransformation& smooth_joint = smooth_joints[user][jointIndex];
     XnSkeletonJointTransformation& joint = data.joints[user][jointIndex];

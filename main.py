@@ -121,7 +121,7 @@ class App(ShowBase):
     return Vec3(x, -0.01, self.wall_top()/2)
     
   def update(self, task):
-    #self.nui.update()
+    self.nui.update()
     self.hand_tracker.update(self.nui.users)
     return Task.cont
 

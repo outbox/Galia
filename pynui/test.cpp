@@ -5,7 +5,7 @@ int main(int argc, char* argv[]) {
   nui_data data;
   while(1) {
     clock_t before = clock();
-    get_nui_data(&data);
+    get_nui_data();
     printf("%fms\n", (clock()-before)*1000.f/CLOCKS_PER_SEC);
     usleep(50*1000);
   }
