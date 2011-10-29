@@ -60,7 +60,6 @@ class App(ShowBase):
       pic.setTransparency(TransparencyAttrib.MAlpha, 1)
       pic.setTexture(texture)
 
-      pic.setBin("fixed", 40)
       pic.setDepthWrite(False)
       pic.setDepthTest(False)
 
@@ -106,6 +105,7 @@ class App(ShowBase):
     self.hand_tracker.update({})
     return Task.cont
 
+  # Iterate through the default positions and scales of the pictures
   def pics_pos_scale(self):
     index = 0
     for pic in self.picsNode.getChildren():
@@ -131,6 +131,7 @@ class App(ShowBase):
     interpolate('arrange', pic.setPos, cubic_interpolator(pic.getPos(), pos, Vec3()), time)
     interpolate('arrange', pic.setScale, cubic_interpolator(pic.getScale(), scale, Vec3(0,0,0)), time)
 
+  # Move each picture to its default position based on the current selection
   def rearrange_pics(self, base_time_on_distance = False):
     base.taskMgr.remove('arrange')
     for (pic, pos, scale) in self.pics_pos_scale():
@@ -145,6 +146,7 @@ class App(ShowBase):
     self.reorder_pics()
     self.rearrange_pics()
 
+  # Z order pictures to make the selection always on top
   def reorder_pics(self):
     index = 0
     for pic in self.picsNode.getChildren():
@@ -159,6 +161,7 @@ class App(ShowBase):
     average_height /= self.picsNode.getNumChildren()
     one_row_width -= pic_margin
     
+    # Distribute pictures into rows
     def flow(rows):
       target_row_width = one_row_width / rows
       row = []
@@ -206,6 +209,7 @@ class App(ShowBase):
   def time_between(self, a, b):
     return 0.3 + log(1 + (a - b).length()) / 5
     
+  # Return the size that will fit the wall at a desired aspect ratio
   def fit_wall(self, aspect_ratio, margin):
     height = self.wall_top * pic_height_ratio
     width = height * aspect_ratio
