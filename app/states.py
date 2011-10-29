@@ -51,9 +51,13 @@ class UserState(State):
 class Start(UserState):
   def __init__(self):
     UserState.__init__(self, None)
+    self.accept('space', self.thumbnails)
   
   def hand_in(self, hand):
     self.next_state(OneHandWait(hand))
+
+  def thumbnails(self):
+    self.next_state(Thumbnails(999))
 
 class OneHandWait(UserState):
   def __init__(self, hand):
