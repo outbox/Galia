@@ -42,7 +42,7 @@ class App(ShowBase):
     
     maker = CardMaker("")
     frameRatio = self.camLens.getAspectRatio()
-    files = [image_path + f for f in listdir(image_path)][0:10]
+    files = [image_path + f for f in listdir(image_path)]#[0:6]
     before = clock()
     print "Loading", len(files), "files..."
     for file in files:
@@ -59,6 +59,10 @@ class App(ShowBase):
       pic = self.picsNode.attachNewNode(maker.generate())
       pic.setTransparency(TransparencyAttrib.MAlpha, 1)
       pic.setTexture(texture)
+
+      pic.setBin("fixed", 40)
+      pic.setDepthWrite(False)
+      pic.setDepthTest(False)
 
     print "Loaded in", str(clock() - before) + "s"
 
@@ -110,14 +114,12 @@ class App(ShowBase):
       (width, height) = self.fit_wall(aspect_ratio, pic_margin + pic_strip_width)
       scale = Vec3(width / 2, 1, height / 2)
 
-      if index < self.selection - 1:
-        x = -2
-      elif index == self.selection - 1:
+      if index == self.selection - 1:
         x = -1 - scale.x + pic_strip_width
       elif index == self.selection:
         x = 0
       elif index == self.selection + 1:
-        x = 2
+        x = 1 + scale.x - pic_strip_width
       else:
         x = (index - self.selection) * 2
       pos = Vec3(x, -0.01, self.wall_top/2)
@@ -125,27 +127,35 @@ class App(ShowBase):
       yield (pic, pos, scale)
       index += 1
 
-  def animate_pic(self, pic, pos, scale, time = 0.5):
+  def animate_pic(self, pic, pos, scale, time):
     interpolate('arrange', pic.setPos, cubic_interpolator(pic.getPos(), pos, Vec3()), time)
     interpolate('arrange', pic.setScale, cubic_interpolator(pic.getScale(), scale, Vec3(0,0,0)), time)
 
-  def rearrange_pics(self):
+  def rearrange_pics(self, base_time_on_distance = False):
     base.taskMgr.remove('arrange')
     for (pic, pos, scale) in self.pics_pos_scale():
-      self.animate_pic(pic, pos, scale)
+      time = 0.5 if not base_time_on_distance else self.time_between(pos, pic.getPos())
+      self.animate_pic(pic, pos, scale, time)
 
   def slide(self, direction):
     new_selection = self.selection + direction
     if new_selection < 0 or new_selection >= self.picsNode.getNumChildren():
       return
     self.selection = new_selection
+    self.reorder_pics()
     self.rearrange_pics()
+
+  def reorder_pics(self):
+    index = 0
+    for pic in self.picsNode.getChildren():
+      pic.setBin('fixed', 41 if index == self.selection else 40)
+      index += 1
 
   def show_thumbnails(self):
     one_row_width, average_height = 0, 0
     for (pic, pos, scale) in self.pics_pos_scale():
       one_row_width += scale.x * 2 + pic_margin
-      average_height += scale.y * 2
+      average_height += scale.z * 2
     average_height /= self.picsNode.getNumChildren()
     one_row_width -= pic_margin
     
@@ -179,6 +189,7 @@ class App(ShowBase):
     (width, height) = self.fit_wall(total_width / total_height, pic_strip_width)
     total_scale = min(width / total_width, height / total_height)
     top = height + (self.wall_top - height) / 2
+    index = 0
     for (row, row_size) in flow(rows):
       for (pic, pos, scale) in row:
         target_pos = Vec3(
@@ -186,10 +197,14 @@ class App(ShowBase):
           pos.y, 
           pos.z * total_scale + top - (row_size.y - scale.z * 2) / 2 * total_scale)
         target_scale = Vec3(scale.x * total_scale, scale.y, scale.z * total_scale)
-        self.animate_pic(pic, target_pos, target_scale)
+        self.animate_pic(pic, target_pos, target_scale, self.time_between(pos, pic.getPos()))
+        index += 1
 
   def hide_thumbnails(self):
-    self.rearrange_pics()
+    self.rearrange_pics(True)
+
+  def time_between(self, a, b):
+    return 0.3 + log(1 + (a - b).length()) / 5
     
   def fit_wall(self, aspect_ratio, margin):
     height = self.wall_top * pic_height_ratio
