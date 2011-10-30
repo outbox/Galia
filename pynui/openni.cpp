@@ -207,6 +207,9 @@ void openni_loop(bool record, std::string replay) {
     
     {
       boost::lock_guard<boost::mutex> lock(data_mutex);
+      for (int i = 0; i<max_events && data->events[i].event; ++i) {
+        add_event(data->events[i].event, data->events[i].user);
+      }
       nui_data* temp = data;
       data = data_back;
       data_back = temp;

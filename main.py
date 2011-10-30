@@ -26,7 +26,7 @@ class App(ShowBase):
     self.win.setClearColor(VBase4(0, 0, 0, 0))
 
     self.nui = Nui()
-    self.nui.smooth_factor = 0.99
+    self.nui.smooth_factor = 0.9
     
     self.camLens.setFov(90)
     self.camLens.setNear(0.01)

@@ -85,6 +85,8 @@ struct Nui {
         users[i] = skel;
       }
     }
+    
+    data.clear_events();
   }
   
   void joint(nui_data& data, Joint& transform, int user, int jointIndex) {
