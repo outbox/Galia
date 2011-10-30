@@ -3,7 +3,7 @@ from pynui import *
 
 class Cursor:
   def __init__(self, app):
-    size = 0.2
+    size = 0.15
     maker = CardMaker("")
     maker.setFrame(-size/2, size/2, -size, 0)
 
@@ -24,7 +24,7 @@ class Cursor:
     self.node.hide()
 
     # Always draw cursor on top
-    self.node.setBin("fixed", 30)
+    self.node.setBin("fixed", 50)
     self.node.setDepthWrite(False)
     self.node.setDepthTest(False)
 

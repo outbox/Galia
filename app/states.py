@@ -22,7 +22,9 @@ class UserState(State):
     State.__init__(self)
     self.user = user
     self.accept('hand-move', self.hand_move)
-    def lost_user(u): if u == user: self.lost_user()
+    def lost_user(u): 
+      if u == user: self.lost_user()
+      self.next_state(Start())
     self.accept('lost-user', lost_user)
 
   def hand_move(self, hand):
@@ -104,7 +106,7 @@ class Thumbnails(UserState):
   def __init__(self, user):
     UserState.__init__(self, user)
     self.user = user
-    messenger.send('show-thumbnails')
+    messenger.send('show-thumbnails', [user])
 
   def lost_user(self):
     messenger.send('hide-thumbnails')

@@ -35,6 +35,10 @@ class Hand(object):
   def side(self):
     return self.user_side[1]
 
+  @property
+  def position(self):
+    return self.positions[-1]
+
 class HandTracker:
   def __init__(self):
     self.origin = Vec3(0, 0, -0.35)
@@ -60,7 +64,7 @@ class HandTracker:
         del self.hands[user_side]
         if user_side in self.shoulders: del self.shoulders[user_side]
         messenger.send('lost-hand', [hand])
-        if (hand.user, Skeleton.right) not in self.hands 
+        if (hand.user, Skeleton.right) not in self.hands \
         and (hand.user, Skeleton.left) not in self.hands:
           messenger.send('lost-user', [hand.user])
 
@@ -79,7 +83,6 @@ class HandTracker:
     skel_side = side.__get__(skel)
 
     if not skel_side.shoulder.valid or not skel_side.hand.valid:
-      print 'invalid hand'
       return
     
     old_shoulder = self.shoulders.get((user, side), None)

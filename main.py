@@ -26,7 +26,7 @@ class App(ShowBase):
     self.win.setClearColor(VBase4(0, 0, 0, 0))
 
     self.nui = Nui()
-    self.nui.smooth_factor = 0.9
+    self.nui.smooth_factor = 0.99
     
     self.camLens.setFov(90)
     self.camLens.setNear(0.01)
@@ -72,19 +72,19 @@ class App(ShowBase):
       pic.setPos(pos)
 
     self.cursor = Cursor(self)
-    self.cursor_hand = None
+    self.cursor_user = None
     
-    # base.cTrav = CollisionTraverser('CollisionTraverser')    
-    # pickerNode = CollisionNode('cursor')
-    # #pickerNode.setFromCollideMask(Thumbs.CollisionMask)
-    # self.cursor_ray = CollisionRay(self.cam.getPos(), Vec3.unitZ())
-    # pickerNode.addSolid(self.cursor_ray)
-    # pickerNP = render.attachNewNode(pickerNode)
-    # self.collision_handler = CollisionHandlerEvent()
-    # self.collision_handler.addInPattern('%fn-into-%in')
-    # self.collision_handler.addAgainPattern('%fn-again-%in')
-    # self.collision_handler.addOutPattern('%fn-out-%in')
-    # base.cTrav.addCollider(pickerNP, self.collision_handler)
+    base.cTrav = CollisionTraverser('CollisionTraverser')    
+    pickerNode = CollisionNode('cursor')
+    #pickerNode.setFromCollideMask(Thumbs.CollisionMask)
+    self.cursor_ray = CollisionRay(self.cam.getPos(), Vec3.unitZ())
+    pickerNode.addSolid(self.cursor_ray)
+    pickerNP = render.attachNewNode(pickerNode)
+    self.collision_handler = CollisionHandlerEvent()
+    self.collision_handler.addInPattern('%fn-into-%in')
+    self.collision_handler.addAgainPattern('%fn-again-%in')
+    self.collision_handler.addOutPattern('%fn-out-%in')
+    base.cTrav.addCollider(pickerNP, self.collision_handler)
 
     self.update_task = PythonTask(self.update, 'UpdateTask')
     self.taskMgr.add(self.update_task)
@@ -101,6 +101,22 @@ class App(ShowBase):
   def update(self, task):
     self.nui.update()
     self.hand_tracker.update(self.nui.users)
+
+    if self.cursor_user is not None:
+      left_hand = self.hand_tracker.hands.get((self.cursor_user, Skeleton.left), None)
+      right_hand = self.hand_tracker.hands.get((self.cursor_user, Skeleton.right), None)
+      if left_hand is None or (right_hand is not None and right_hand.position.y > left_hand.position.y):
+        hand = right_hand
+      else:
+        hand = left_hand
+      if hand:
+        self.cursor.set_side(hand.side)
+        pos = hand.position
+        pos.x /= 0.25
+        pos.y /= 0.2
+        self.cursor.node.setPos(pos.x, 0, (pos.y + 1) / 2 * self.wall_top)
+        self.cursor_ray.setDirection(self.cursor.node.getPos() - self.cam.getPos())
+
     return Task.cont
 
   # Iterate through the default positions and scales of the pictures
@@ -151,7 +167,10 @@ class App(ShowBase):
       pic.setBin('fixed', 41 if index == self.selection else 40)
       index += 1
 
-  def show_thumbnails(self):
+  def show_thumbnails(self, user):
+    self.cursor.node.show()
+    self.cursor_user = user
+
     one_row_width, average_height = 0, 0
     for (pic, pos, scale) in self.pics_pos_scale():
       one_row_width += scale.x * 2 + pic_margin
@@ -202,6 +221,8 @@ class App(ShowBase):
         index += 1
 
   def hide_thumbnails(self):
+    self.cursor_user = None
+    self.cursor.node.hide()
     self.rearrange_pics(True)
 
   def time_between(self, a, b):
