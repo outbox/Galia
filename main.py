@@ -25,8 +25,8 @@ class App(ShowBase):
 
     self.win.setClearColor(VBase4(0, 0, 0, 0))
 
-    # self.nui = Nui()
-    # self.nui.smooth_factor = 0.9
+    self.nui = Nui()
+    self.nui.smooth_factor = 0.9
     
     self.camLens.setFov(90)
     self.camLens.setNear(0.01)
@@ -42,7 +42,7 @@ class App(ShowBase):
     
     maker = CardMaker("")
     frameRatio = self.camLens.getAspectRatio()
-    files = [image_path + f for f in listdir(image_path)]#[0:6]
+    files = [image_path + f for f in listdir(image_path)][0:6]
     before = clock()
     print "Loading", len(files), "files..."
     for file in files:
@@ -71,11 +71,10 @@ class App(ShowBase):
       pic.setScale(scale)
       pic.setPos(pos)
 
-    # base.cTrav = CollisionTraverser('CollisionTraverser')
-
-    # self.cursor = Cursor(self)
-    # self.cursor_hand = None
+    self.cursor = Cursor(self)
+    self.cursor_hand = None
     
+    # base.cTrav = CollisionTraverser('CollisionTraverser')    
     # pickerNode = CollisionNode('cursor')
     # #pickerNode.setFromCollideMask(Thumbs.CollisionMask)
     # self.cursor_ray = CollisionRay(self.cam.getPos(), Vec3.unitZ())
@@ -100,9 +99,8 @@ class App(ShowBase):
     self.accept('hide-thumbnails', self.hide_thumbnails)
 
   def update(self, task):
-    # self.nui.update()
-    # self.hand_tracker.update(self.nui.users)
-    self.hand_tracker.update({})
+    self.nui.update()
+    self.hand_tracker.update(self.nui.users)
     return Task.cont
 
   # Iterate through the default positions and scales of the pictures

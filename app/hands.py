@@ -12,7 +12,6 @@ class Hand(object):
     self.append(pos)
     self.user_side = user_side
     self.speed_smooth = 0.9
-    self.grab = False
     self.generation = 0
 
   def append(self, pos):
@@ -60,8 +59,10 @@ class HandTracker:
       if hand.generation != self.generation:
         del self.hands[user_side]
         if user_side in self.shoulders: del self.shoulders[user_side]
-        if hand.grab: messenger.send('hand-grab-end', [hand])
         messenger.send('lost-hand', [hand])
+        if (hand.user, Skeleton.right) not in self.hands 
+        and (hand.user, Skeleton.left) not in self.hands:
+          messenger.send('lost-user', [hand.user])
 
   def valid_user(self, skel):
     if all([
@@ -78,6 +79,7 @@ class HandTracker:
     skel_side = side.__get__(skel)
 
     if not skel_side.shoulder.valid or not skel_side.hand.valid:
+      print 'invalid hand'
       return
     
     old_shoulder = self.shoulders.get((user, side), None)
@@ -99,12 +101,4 @@ class HandTracker:
       hand.append(pos)
       if hand.positions[-1] != hand.positions[-2]:
         messenger.send('hand-move', [hand])
-
     hand.generation = self.generation
-
-    if pos.z > 0 and hand.grab:
-      hand.grab = False
-      messenger.send('hand-grab-end', [hand])
-    elif pos.z <= 0 and not hand.grab:
-      hand.grab = True
-      messenger.send('hand-grab-start', [hand])

@@ -24,7 +24,7 @@ class Cursor:
     self.node.hide()
 
     # Always draw cursor on top
-    self.node.setBin("fixed", 40)
+    self.node.setBin("fixed", 30)
     self.node.setDepthWrite(False)
     self.node.setDepthTest(False)
 

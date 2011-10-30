@@ -22,12 +22,8 @@ class UserState(State):
     State.__init__(self)
     self.user = user
     self.accept('hand-move', self.hand_move)
-    self.accept('lost-hand', self.lost_hand)
-  
-  def lost_hand(self, hand):
-    if self.user == hand.user:
-      self.lost_user()
-      self.next_state(Start())
+    def lost_user(u): if u == user: self.lost_user()
+    self.accept('lost-user', lost_user)
 
   def hand_move(self, hand):
     if self.user is None or hand.user == self.user:
