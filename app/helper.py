@@ -78,3 +78,12 @@ def make_fbo(auxrgba=0):
          GraphicsPipe.BFSizeTrackHost | GraphicsPipe.BFCanBindEvery | 
          GraphicsPipe.BFRttCumulative | GraphicsPipe.BFRefuseWindow,
          base.win.getGsg(), base.win)
+
+# Returns a rectangle of the desired aspect_ratio that fits inside a container
+def fit(aspect_ratio, container_width, container_height):
+  height = container_height
+  width = height * aspect_ratio
+  if width > container_width:
+    width = container_width
+    height = width / aspect_ratio
+  return (width, height)

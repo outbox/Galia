@@ -9,6 +9,7 @@ from app.hands import *
 from app.cursor import *
 from app.helper import *
 from app.config import *
+from app.flow import *
 import app.states as states
 
 from panda3d.core import *
@@ -171,54 +172,9 @@ class App(ShowBase):
     self.cursor.node.show()
     self.cursor_user = user
 
-    one_row_width, average_height = 0, 0
-    for (pic, pos, scale) in self.pics_pos_scale():
-      one_row_width += scale.x * 2 + pic_margin
-      average_height += scale.z * 2
-    average_height /= self.picsNode.getNumChildren()
-    one_row_width -= pic_margin
-    
-    # Distribute pictures into rows
-    def flow(rows):
-      target_row_width = one_row_width / rows
-      row = []
-      row_size = Vec2()
-      top = 0
-      for (pic, pos, scale) in self.pics_pos_scale():
-        if row_size.x == 0 or row_size.x + pic_margin + scale.x < target_row_width:
-          if row_size.x > 0: row_size.x += pic_margin
-          row_size.x += scale.x * 2
-          row_size.y = max(scale.z * 2, row_size.y)
-          row.append((pic, Vec3(row_size.x - scale.x, pos.y, top - scale.z), scale))
-        else:
-          yield (row, row_size)
-          top -= row_size.y + pic_margin
-          row = [(pic, Vec3(scale.x, pos.y, top - scale.z), scale)]
-          row_size = Vec2(scale.x, scale.z) * 2
-      yield (row, row_size)
-    
-    wall_aspect = (2 - pic_strip_width * 2) / (self.wall_top * pic_height_ratio)
-    rows = round(sqrt(one_row_width / (average_height * wall_aspect)))
-
-    total_width = 0
-    total_height = 0
-    for (row, size) in flow(rows):
-      total_width = max(size.x, total_width)
-      if total_height > 0: total_height += pic_margin
-      total_height += size.y
-    (width, height) = self.fit_wall(total_width / total_height, pic_strip_width)
-    total_scale = min(width / total_width, height / total_height)
-    top = height + (self.wall_top - height) / 2
-    index = 0
-    for (row, row_size) in flow(rows):
-      for (pic, pos, scale) in row:
-        target_pos = Vec3(
-          pos.x * total_scale - row_size.x * total_scale / 2, 
-          pos.y, 
-          pos.z * total_scale + top - (row_size.y - scale.z * 2) / 2 * total_scale)
-        target_scale = Vec3(scale.x * total_scale, scale.y, scale.z * total_scale)
-        self.animate_pic(pic, target_pos, target_scale, self.time_between(pos, pic.getPos()))
-        index += 1
+    flow = Flow(self.pics_pos_scale(), 2, self.wall_top, pic_margin, thumbnail_margin)
+    for (pic, pos, scale) in flow.layout_items:
+      self.animate_pic(pic, pos, scale, self.time_between(pos, pic.getPos()))
 
   def hide_thumbnails(self):
     self.cursor_user = None
@@ -230,13 +186,8 @@ class App(ShowBase):
     
   # Return the size that will fit the wall at a desired aspect ratio
   def fit_wall(self, aspect_ratio, margin):
-    height = self.wall_top * pic_height_ratio
-    width = height * aspect_ratio
-    if width + margin * 2 > 2:
-      width = 2 - margin * 2
-      height = width / aspect_ratio
-    return (width, height)
-        
+    return fit(aspect_ratio, 2 - margin * 2, self.wall_top * pic_height_ratio)
+
   @property
   def wall_top(self):
     return (- self.cam.getPos().y) * tan(vfov()/2) + self.cam.getPos().z
