@@ -43,7 +43,7 @@ class App(ShowBase):
     
     maker = CardMaker("")
     frameRatio = self.camLens.getAspectRatio()
-    files = [image_path + f for f in listdir(image_path)][0:10]
+    files = [image_path + f for f in listdir(image_path)][0:4]
     before = clock()
     print "Loading", len(files), "files..."
     for file in files:
@@ -174,8 +174,10 @@ class App(ShowBase):
     self.cursor.node.show()
     self.cursor_user = user
 
-    flow = Flow(self.pics_pos_scale(), 2, self.wall_top, pic_margin, thumbnail_margin)
+    flow = Flow(self.picsNode.getChildren(), 2, self.wall_top, pic_margin, thumbnail_margin)
     for (pic, pos, scale) in flow.layout_items:
+      pos = Vec3(pos.x, 0, pos.y)
+      scale = Vec3(scale.x, 1, scale.y)
       self.animate_pic(pic, pos, scale, self.time_between(pos, pic.getPos()))
 
   def hide_thumbnails(self):
