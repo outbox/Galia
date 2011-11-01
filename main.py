@@ -43,7 +43,7 @@ class App(ShowBase):
     
     maker = CardMaker("")
     frameRatio = self.camLens.getAspectRatio()
-    files = [image_path + f for f in listdir(image_path)][0:6]
+    files = [image_path + f for f in listdir(image_path)][0:10]
     before = clock()
     print "Loading", len(files), "files..."
     for file in files:
@@ -122,6 +122,7 @@ class App(ShowBase):
 
   # Iterate through the default positions and scales of the pictures
   def pics_pos_scale(self):
+    items = []
     index = 0
     for pic in self.picsNode.getChildren():
       texture = pic.getTexture()
@@ -139,8 +140,9 @@ class App(ShowBase):
         x = (index - self.selection) * 2
       pos = Vec3(x, -0.01, self.wall_top/2)
 
-      yield (pic, pos, scale)
+      items.append((pic, pos, scale))
       index += 1
+    return items
 
   def animate_pic(self, pic, pos, scale, time):
     interpolate('arrange', pic.setPos, cubic_interpolator(pic.getPos(), pos, Vec3()), time)
@@ -200,11 +202,11 @@ class App(ShowBase):
     buffer = base.win.makeTextureBuffer('shadow', 512, 512)
     buffer.setClearColor(VBase4(0, 0, 0, 0))
     display = buffer.makeDisplayRegion()
-    camera = render.attachNewNode(Camera('shadow'))
+    camera = base.cam.attachNewNode(Camera('shadow'))
     display.setCamera(camera)
     camera.node().setLens(base.camLens)
-    camera.setMat(base.cam.getMat())
     camera.node().setScene(self.picsNode)
+    camera.setPos(-0.002, 0, 0.002)
 
     blur_x = make_filter_buffer(buffer, 'blur-x')
     blur = make_filter_buffer(blur_x, 'blur-y')

@@ -1,11 +1,10 @@
 from panda3d.core import Vec2, Vec3
 from app.helper import fit
 from math import *
+from pprint import pprint
 
 class Flow(object):
-  def __init__(self, items, container_width, container_height, spacing, margin):
-    items = [i for i in items]
-    
+  def __init__(self, items, container_width, container_height, spacing, margin):    
     one_row_width, average_height = 0, 0
     for (node, pos, scale) in items:
       one_row_width += scale.x * 2 + spacing
@@ -32,7 +31,7 @@ class Flow(object):
         top -= row_size.y + spacing
         row = [(node, Vec3(scale.x, pos.y, top - scale.z), scale)]
         row_size = Vec2(scale.x, scale.z) * 2
-        row_list.append((row, row_size))
+    row_list.append((row, row_size))
 
     total_width = 0
     total_height = 0
@@ -41,8 +40,8 @@ class Flow(object):
       if total_height > 0: total_height += spacing
       total_height += size.y
     (width, height) = fit(
-      total_width / total_height, 
-      container_width - margin * 2, 
+      total_width / total_height,
+      container_width - margin * 2,
       container_height - margin * 2)
     self.scale = min(width / total_width, height / total_height)
     top = height + (container_height - height) / 2
