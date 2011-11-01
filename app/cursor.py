@@ -5,7 +5,7 @@ class Cursor:
   def __init__(self, app):
     size = 0.15
     maker = CardMaker("")
-    maker.setFrame(-size/2, size/2, -size, 0)
+    maker.setFrame(-size/2, size/2, -size/2, size/2)
 
     def texture(file):
       t = loader.loadTexture(file)

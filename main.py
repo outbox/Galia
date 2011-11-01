@@ -18,6 +18,8 @@ from direct.showbase.ShowBase import ShowBase
 from direct.task import Task
 from direct.filter.CommonFilters import CommonFilters
 
+collision_mask = BitMask32(0x10)
+
 class App(ShowBase):
   def __init__(self):
     ShowBase.__init__(self)
@@ -43,7 +45,7 @@ class App(ShowBase):
     
     maker = CardMaker("")
     frameRatio = self.camLens.getAspectRatio()
-    files = [image_path + f for f in listdir(image_path)][0:4]
+    files = [image_path + f for f in listdir(image_path)][0:10]
     before = clock()
     print "Loading", len(files), "files..."
     for file in files:
@@ -55,18 +57,20 @@ class App(ShowBase):
       texture.setWrapU(Texture.WMClamp)
       texture.setWrapV(Texture.WMClamp)
       
-      maker = CardMaker('')
+      maker = CardMaker('pic')
       maker.setFrame(-1, 1, -1, 1)
       pic = self.picsNode.attachNewNode(maker.generate())
       pic.setTransparency(TransparencyAttrib.MAlpha, 1)
       pic.setTexture(texture)
+      pic.setCollideMask(collision_mask)
 
-      pic.setDepthWrite(False)
-      pic.setDepthTest(False)
+      # pic.setDepthWrite(False)
+      # pic.setDepthTest(False)
 
     print "Loaded in", str(clock() - before) + "s"
 
     self.selection = 0
+    self.reorder_pics
 
     for (pic, pos, scale) in self.pics_pos_scale():
       pic.setScale(scale)
@@ -77,7 +81,7 @@ class App(ShowBase):
     
     base.cTrav = CollisionTraverser('CollisionTraverser')    
     pickerNode = CollisionNode('cursor')
-    #pickerNode.setFromCollideMask(Thumbs.CollisionMask)
+    pickerNode.setFromCollideMask(collision_mask)
     self.cursor_ray = CollisionRay(self.cam.getPos(), Vec3.unitZ())
     pickerNode.addSolid(self.cursor_ray)
     pickerNP = render.attachNewNode(pickerNode)
@@ -90,7 +94,9 @@ class App(ShowBase):
     self.update_task = PythonTask(self.update, 'UpdateTask')
     self.taskMgr.add(self.update_task)
 
-    self.hand_interpolator = cubic_interpolator(0, 6, 0)
+    self.hover_pic = None
+
+    self.thumbnail_layout = Flow(self.picsNode.getChildren(), 2, self.wall_top, pic_margin, thumbnail_margin)
 
     self.hand_tracker = HandTracker()
     states.Start()
@@ -98,6 +104,10 @@ class App(ShowBase):
     self.accept('slide', self.slide)
     self.accept('show-thumbnails', self.show_thumbnails)
     self.accept('hide-thumbnails', self.hide_thumbnails)
+
+    self.accept('cursor-into-pic', self.cursor_into_pic)
+    self.accept('cursor-again-pic', self.cursor_into_pic)
+    self.accept('cursor-out-pic', self.cursor_out_pic)
 
   def update(self, task):
     self.nui.update()
@@ -165,17 +175,17 @@ class App(ShowBase):
 
   # Z order pictures to make the selection always on top
   def reorder_pics(self):
-    index = 0
-    for pic in self.picsNode.getChildren():
-      pic.setBin('fixed', 41 if index == self.selection else 40)
-      index += 1
+    pass
+    # index = 0
+    # for pic in self.picsNode.getChildren():
+    #   pic.setBin('fixed', 41 if index == self.selection else 40)
+    #   index += 1
 
   def show_thumbnails(self, user):
     self.cursor.node.show()
     self.cursor_user = user
 
-    flow = Flow(self.picsNode.getChildren(), 2, self.wall_top, pic_margin, thumbnail_margin)
-    for (pic, pos, scale) in flow.layout_items:
+    for (pic, pos, scale) in self.thumbnail_layout.layout_items:
       pos = Vec3(pos.x, 0, pos.y)
       scale = Vec3(scale.x, 1, scale.y)
       self.animate_pic(pic, pos, scale, self.time_between(pos, pic.getPos()))
@@ -183,7 +193,38 @@ class App(ShowBase):
   def hide_thumbnails(self):
     self.cursor_user = None
     self.cursor.node.hide()
+    self.cursor_ray.setDirection(Vec3(1,0,0))
     self.rearrange_pics(True)
+
+  def index_of_pic(self, pic):
+    index = 0
+    for p in self.picsNode.getChildren():
+      if p == pic: return index
+      index += 1
+    return -1
+    
+  def cursor_into_pic(self, entry):
+    if self.hover_pic: return
+    pic = self.hover_pic = entry.getIntoNodePath()
+    index = self.index_of_pic(pic)
+    self.selection = index
+    
+    pos = self.thumbnail_layout.layout_items[index][1]
+    pos = Vec3(pos.x, 0, pos.y)
+    dir = base.cam.getPos() - pos
+    dir.normalize()
+    pos += dir * 0.25
+    interpolate('into' + str(index), pic.setPos, cubic_interpolator(pic.getPos(), pos, Vec3()), 0.3)
+    
+  def cursor_out_pic(self, entry):
+    pic = entry.getIntoNodePath()
+    if pic != self.hover_pic: return
+    self.hover_pic = None
+    index = self.index_of_pic(pic)
+    pos = self.thumbnail_layout.layout_items[index][1]
+    pos = Vec3(pos.x, 0, pos.y)
+    base.taskMgr.remove('into' + str(index))
+    interpolate('out', pic.setPos, cubic_interpolator(pic.getPos(), pos, Vec3()), 0.2)
 
   def time_between(self, a, b):
     return 0.3 + log(1 + (a - b).length()) / 5
@@ -221,6 +262,9 @@ class App(ShowBase):
     wall.setShaderInput('diffuse', texture)
 
     wall.setShader(load_shader('wall'))
+
+    wall.setBin('background', 10)
+    wall.setDepthWrite(False)
 
   def create_floor(self):
     name = 'floor'
