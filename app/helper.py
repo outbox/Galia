@@ -34,15 +34,19 @@ def create_card(left, right, bottom, top, uv_ratio=1, name="", top_margin=0):
       Point2(1, 1 + diff + top_margin))
   return NodePath(maker.generate())
 
-def interpolate_task(task, interpolator, time, setter):
+def interpolate_task(task, interpolator, time, setter, on_done):
   a = min(1, task.time/time)
   setter(interpolator(a))
-  return Task.cont if a < 1 else Task.done
+  if a < 1:
+    return Task.cont
+  else:
+    if on_done: on_done()
+    return Task.done
 
-def interpolate(name, setter, interpolator, time, delay=0):
+def interpolate(name, setter, interpolator, time, delay=0, on_done=None):
   task = PythonTask(interpolate_task, name)
   task.setDelay(delay)
-  base.taskMgr.add(task, extraArgs=[task, interpolator, time, setter])
+  base.taskMgr.add(task, extraArgs=[task, interpolator, time, setter, on_done])
   return task
 
 def cubic_interpolate(name, setter, start, end, speed=0, time=0.5, delay=0):

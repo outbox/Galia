@@ -13,3 +13,6 @@ pic_strip_width = 0.1
 pic_height_ratio = 0.9
 
 thumbnail_margin = 0.05
+
+# number of seconds the cursor must hover over an item to select it
+cursor_select_time = 1.5

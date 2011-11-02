@@ -81,6 +81,10 @@ class SlideOne(UserState):
     self.timer(1, self.timeout)
     messenger.send('slide', [hand.side_sign])
 
+  def hand_in(self, hand):
+    if hand != self.hand and hand.user == self.hand.user:
+      self.next_state(Thumbnails(self.hand.user))
+
   def timeout(self):
     self.next_state(SlideRepeat(self.hand))
   
@@ -95,6 +99,10 @@ class SlideRepeat(UserState):
     self.timer(0.5, self.timeout)
     messenger.send('slide', [hand.side_sign])
 
+  def hand_in(self, hand):
+    if hand != self.hand and hand.user == self.hand.user:
+      self.next_state(Thumbnails(self.hand.user))
+
   def timeout(self):
     self.next_state(SlideRepeat(self.hand))
 
@@ -107,7 +115,11 @@ class Thumbnails(UserState):
     UserState.__init__(self, user)
     self.user = user
     messenger.send('show-thumbnails', [user])
+    self.accept('thumbnail-selected', self.thumbnail_selected)
 
   def lost_user(self):
     messenger.send('hide-thumbnails')
 
+  def thumbnail_selected(self, node):
+    messenger.send('hide-thumbnails')
+    self.next_state(Start())

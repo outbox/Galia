@@ -45,7 +45,7 @@ class App(ShowBase):
     
     maker = CardMaker("")
     frameRatio = self.camLens.getAspectRatio()
-    files = [image_path + f for f in listdir(image_path)][0:10]
+    files = [image_path + f for f in listdir(image_path)]#[0:4]
     before = clock()
     print "Loading", len(files), "files..."
     for file in files:
@@ -64,13 +64,9 @@ class App(ShowBase):
       pic.setTexture(texture)
       pic.setCollideMask(collision_mask)
 
-      # pic.setDepthWrite(False)
-      # pic.setDepthTest(False)
-
     print "Loaded in", str(clock() - before) + "s"
 
     self.selection = 0
-    self.reorder_pics
 
     for (pic, pos, scale) in self.pics_pos_scale():
       pic.setScale(scale)
@@ -155,12 +151,13 @@ class App(ShowBase):
     return items
 
   def animate_pic(self, pic, pos, scale, time):
-    interpolate('arrange', pic.setPos, cubic_interpolator(pic.getPos(), pos, Vec3()), time)
-    interpolate('arrange', pic.setScale, cubic_interpolator(pic.getScale(), scale, Vec3(0,0,0)), time)
+    name = str(pic.getKey())
+    base.taskMgr.remove(name)
+    interpolate(name, pic.setPos, cubic_interpolator(pic.getPos(), pos, Vec3()), time)
+    interpolate(name, pic.setScale, cubic_interpolator(pic.getScale(), scale, Vec3(0,0,0)), time)
 
   # Move each picture to its default position based on the current selection
   def rearrange_pics(self, base_time_on_distance = False):
-    base.taskMgr.remove('arrange')
     for (pic, pos, scale) in self.pics_pos_scale():
       time = 0.5 if not base_time_on_distance else self.time_between(pos, pic.getPos())
       self.animate_pic(pic, pos, scale, time)
@@ -170,19 +167,10 @@ class App(ShowBase):
     if new_selection < 0 or new_selection >= self.picsNode.getNumChildren():
       return
     self.selection = new_selection
-    self.reorder_pics()
     self.rearrange_pics()
 
-  # Z order pictures to make the selection always on top
-  def reorder_pics(self):
-    pass
-    # index = 0
-    # for pic in self.picsNode.getChildren():
-    #   pic.setBin('fixed', 41 if index == self.selection else 40)
-    #   index += 1
-
   def show_thumbnails(self, user):
-    self.cursor.node.show()
+    self.cursor.show()
     self.cursor_user = user
 
     for (pic, pos, scale) in self.thumbnail_layout.layout_items:
@@ -192,7 +180,7 @@ class App(ShowBase):
 
   def hide_thumbnails(self):
     self.cursor_user = None
-    self.cursor.node.hide()
+    self.hover_pic = None
     self.cursor_ray.setDirection(Vec3(1,0,0))
     self.rearrange_pics(True)
 
@@ -205,26 +193,38 @@ class App(ShowBase):
     
   def cursor_into_pic(self, entry):
     if self.hover_pic: return
-    pic = self.hover_pic = entry.getIntoNodePath()
+    pic = entry.getIntoNodePath()
+    if base.taskMgr.hasTaskNamed(str(pic.getKey())): return
+    
+    self.hover_pic = pic
     index = self.index_of_pic(pic)
     self.selection = index
-    
+
     pos = self.thumbnail_layout.layout_items[index][1]
     pos = Vec3(pos.x, 0, pos.y)
     dir = base.cam.getPos() - pos
     dir.normalize()
-    pos += dir * 0.25
-    interpolate('into' + str(index), pic.setPos, cubic_interpolator(pic.getPos(), pos, Vec3()), 0.3)
+    pos += dir * 0.2
+    base.taskMgr.remove(str(pic.getKey()))
+    interpolate(str(pic.getKey()), pic.setPos, cubic_interpolator(pic.getPos(), pos, Vec3()), 0.3)
     
+    def timeout():
+      messenger.send('thumbnail-selected', [pic])
+    base.taskMgr.doMethodLater(cursor_select_time, timeout, 'thumbnail-timer', extraArgs=[])
+    self.cursor.play_timer(cursor_select_time)
+
   def cursor_out_pic(self, entry):
+    if not self.cursor_user: return
     pic = entry.getIntoNodePath()
     if pic != self.hover_pic: return
     self.hover_pic = None
     index = self.index_of_pic(pic)
     pos = self.thumbnail_layout.layout_items[index][1]
     pos = Vec3(pos.x, 0, pos.y)
-    base.taskMgr.remove('into' + str(index))
-    interpolate('out', pic.setPos, cubic_interpolator(pic.getPos(), pos, Vec3()), 0.2)
+    base.taskMgr.remove(str(pic.getKey()))
+    interpolate(str(pic.getKey()), pic.setPos, cubic_interpolator(pic.getPos(), pos, Vec3()), 0.2)
+    base.taskMgr.remove('thumbnail-timer')
+    self.cursor.cancel_timer()
 
   def time_between(self, a, b):
     return 0.3 + log(1 + (a - b).length()) / 5

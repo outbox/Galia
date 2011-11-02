@@ -11,11 +11,13 @@ void vshader(
  
 void fshader(
   uniform sampler2D tex_0,
-  uniform float4 attr_colorscale,
+  uniform sampler2D timer_tex,
+  uniform float4 timer_frame,
   float2 l_texcoord0 : TEXCOORD0,
-  out float4 o_color : COLOR)
+  uniform float4 attr_color,
+  out float4 o_color : COLOR) 
 {
-  o_color = l_texcoord0.x < 0 || l_texcoord0.x > 1 || l_texcoord0.y < 0 || l_texcoord0.y > 1? 
-    float4(0,0,0,0)
-    : tex2D(tex_0, l_texcoord0) * attr_colorscale;
+  float4 timer = tex2D(timer_tex, timer_frame.xy + timer_frame.zw * l_texcoord0);
+  float4 color = tex2D(tex_0, l_texcoord0) * attr_color;
+  o_color = float4(color.rgb * color.a + timer.rgb * timer.a, timer.a+color.a);
 }
