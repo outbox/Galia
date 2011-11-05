@@ -131,8 +131,8 @@ struct Nui {
     }
   }
   
-  unsigned long long label_map() {
-    return (unsigned long long)&_label_map[0];
+  unsigned long label_map() {
+    return (unsigned long)&_label_map[0];
   }
 };
 
