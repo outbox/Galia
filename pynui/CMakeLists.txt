@@ -21,7 +21,11 @@ find_package(Boost COMPONENTS python)
 find_package(Boost COMPONENTS thread)
 
 include_directories(/usr/include/ni)
-link_libraries(/usr/lib/libOpenNI.dylib)
+if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+  link_libraries(/usr/lib/libOpenNI.dylib)
+else()
+  link_libraries(/usr/lib/libOpenNI.so)
+endif()
 
 add_library(pynui SHARED pynui.cpp openni.cpp openni.h nui_data.h)
 target_link_libraries(pynui ${Boost_LIBRARIES} ${PYTHON_LIBRARIES})
