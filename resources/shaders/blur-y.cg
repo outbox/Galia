@@ -15,16 +15,23 @@ void vshader(float4 vtx_position : POSITION,
 
 void fshader(float2 l_texcoord0 : TEXCOORD0,
              out float4 o_color : COLOR,
-             uniform sampler2D tex_0 : TEXUNIT0)
+             uniform sampler2D t : TEXUNIT0,
+             uniform float2 texpix_t)
 {
-  float3 offset = float3(1.0/1024.0, 5.0/1024.0, 9.0/1024.0);
-  o_color =  tex2D(tex_0, float2(l_texcoord0.x, l_texcoord0.y - offset.z)) * 5.0;
-  o_color += tex2D(tex_0, float2(l_texcoord0.x, l_texcoord0.y - offset.y)) * 8.0;
-  o_color += tex2D(tex_0, float2(l_texcoord0.x, l_texcoord0.y - offset.x)) * 10.0;
-  o_color += tex2D(tex_0, float2(l_texcoord0.x, l_texcoord0.y + offset.x)) * 10.0;
-  o_color += tex2D(tex_0, float2(l_texcoord0.x, l_texcoord0.y + offset.y)) * 8.0;
-  o_color += tex2D(tex_0, float2(l_texcoord0.x, l_texcoord0.y + offset.z)) * 5.0;
-  o_color = o_color * 0.030;
+  float offset = texpix_t.y;
+  float4 sum = float4(0.0);
+ 
+  sum += tex2D(t, float2(l_texcoord0.x, l_texcoord0.y - 4.0*offset)) * 0.05;
+  sum += tex2D(t, float2(l_texcoord0.x, l_texcoord0.y - 3.0*offset)) * 0.09;
+  sum += tex2D(t, float2(l_texcoord0.x, l_texcoord0.y - 2.0*offset)) * 0.12;
+  sum += tex2D(t, float2(l_texcoord0.x, l_texcoord0.y - offset)) * 0.15;
+  sum += tex2D(t, float2(l_texcoord0.x, l_texcoord0.y)) * 0.16;
+  sum += tex2D(t, float2(l_texcoord0.x, l_texcoord0.y + offset)) * 0.15;
+  sum += tex2D(t, float2(l_texcoord0.x, l_texcoord0.y + 2.0*offset)) * 0.12;
+  sum += tex2D(t, float2(l_texcoord0.x, l_texcoord0.y + 3.0*offset)) * 0.09;
+  sum += tex2D(t, float2(l_texcoord0.x, l_texcoord0.y + 4.0*offset)) * 0.05;
+ 
+  o_color = sum;
 }
 
 

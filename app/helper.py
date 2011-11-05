@@ -63,6 +63,7 @@ def make_filter_buffer(srcbuffer, shader):
     blurBuffer.setClearColor(Vec4(0,0,0,0))
     blurCamera=base.makeCamera2d(blurBuffer)
     card = srcbuffer.getTextureCard()
+    card.setShaderInput('t', card.getTexture())
     card.setShader(load_shader(shader))
     blurCamera.node().setScene(card)
     return blurBuffer
