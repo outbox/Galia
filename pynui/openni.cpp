@@ -4,8 +4,9 @@
 #include <XnCodecIDs.h>
 #include <string>
 #include <signal.h>
+#include <boost/scoped_ptr.hpp>
 
-static nui_data *data, *data_back;
+static boost::scoped_ptr<nui_data> data, data_back;
 static boost::mutex data_mutex;
 static XnContext* context;
 static XnNodeHandle userGenerator;
@@ -111,8 +112,8 @@ void openni_loop(bool record, std::string replay) {
   signal(SIGKILL, sighandler);
   signal(SIGTERM, sighandler);
   
-  data = new nui_data;
-  data_back = new nui_data;
+  data.reset(new nui_data);
+  data_back.reset(new nui_data);
   
   printf("OpenNI thread started.\n");
   
@@ -210,9 +211,7 @@ void openni_loop(bool record, std::string replay) {
       for (int i = 0; i<max_events && data->events[i].event; ++i) {
         add_event(data->events[i].event, data->events[i].user);
       }
-      nui_data* temp = data;
-      data = data_back;
-      data_back = temp;
+      data.swap(data_back);
     }
   }
 }
