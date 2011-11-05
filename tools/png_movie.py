@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import os, sys, argparse, os.path as path
 from math import *
 from fnmatch import fnmatch
@@ -13,17 +14,20 @@ files = [f for f in os.listdir(args.path) if fnmatch(f, args.pattern)]
 
 width, height = Image.open(path.join(args.path, files[0])).size
 
-side = sqrt(len(files))
+side = sqrt(width*height*len(files))
 n = 1
 while n < side: n *=2
 side = n
 
-target = Image.new('RGBA', (side*width, side*height))
+x_count = side / width
+y_count = side / height
+
+target = Image.new('RGBA', (x_count*width, y_count*height))
 
 index = 0
 for file in files:
-  x = (index % side) * width
-  y = (index // side) * height
+  x = (index % x_count) * width
+  y = (index // x_count) * height
   index += 1
   image = Image.open(path.join(args.path, file))
   target.paste(image, (x,y))
