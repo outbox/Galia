@@ -1,6 +1,8 @@
 #include <boost/python.hpp>
 #include "openni.h"
 #include <string>
+#include <vector>
+#include <Python.h>
 
 using namespace boost::python;
 
@@ -30,6 +32,7 @@ struct Skeleton {
 struct Nui {
   object main, vec3, mat3;
   object users;
+  std::vector<char> _label_map;
   
   float smooth_factor;
   XnSkeletonJointTransformation smooth_joints[max_users][joint_count];
@@ -86,6 +89,22 @@ struct Nui {
       }
     }
     
+    _label_map.resize(data.width * data.height * 4);
+    for (size_t i = 0; i < _label_map.size(); i+=4) {
+      XnLabel label = data.label_map[i/4];
+      if (label) {
+        _label_map[i] = 0xff;
+        _label_map[i+1] = 0xff;
+        _label_map[i+2] = 0xff;
+        _label_map[i+3] = 0xff;
+      } else {
+        _label_map[i] = 0;
+        _label_map[i+1] = 0;
+        _label_map[i+2] = 0;
+        _label_map[i+3] = 0;
+      }
+    }
+
     data.clear_events();
   }
   
@@ -111,6 +130,10 @@ struct Nui {
       smooth_joint.position.fConfidence = joint.position.fConfidence;
     }
   }
+  
+  unsigned long long label_map() {
+    return (unsigned long long)&_label_map[0];
+  }
 };
 
 BOOST_PYTHON_MODULE(pynui)
@@ -121,6 +144,7 @@ BOOST_PYTHON_MODULE(pynui)
   .def("update", &Nui::update)
   .def_readwrite("smooth_factor", &Nui::smooth_factor)
   .def_readonly("users", &Nui::users)
+  .add_property("label_map", &Nui::label_map)
   ;
   
   class_<Joint>("Joint")

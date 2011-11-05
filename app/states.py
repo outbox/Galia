@@ -52,27 +52,10 @@ class Start(UserState):
     self.accept('space', self.thumbnails)
   
   def hand_in(self, hand):
-    self.next_state(OneHandWait(hand))
+    self.next_state(SlideOne(hand))
 
   def thumbnails(self):
     self.next_state(Thumbnails(999))
-
-class OneHandWait(UserState):
-  def __init__(self, hand):
-    UserState.__init__(self, hand.user)
-    self.hand = hand
-    self.timer(0.2, self.timeout)
-  
-  def timeout(self):
-    self.next_state(SlideOne(self.hand))
-  
-  def hand_in(self, hand):
-    if hand != self.hand and hand.user == self.hand.user:
-      self.next_state(Thumbnails(self.hand.user))
-
-  def hand_out(self, hand):
-    if hand == self.hand:
-      self.next_state(Start())
 
 class SlideOne(UserState):
   def __init__(self, hand):

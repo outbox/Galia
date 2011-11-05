@@ -13,8 +13,9 @@ void vshader(
 }
  
 void fshader(
-  uniform sampler2D tex_0,
-  uniform sampler2D diffuse,
+  uniform sampler2D diffuse_tex,
+  uniform sampler2D reflection_tex,
+  uniform sampler2D shadow_tex,
   float4 l_texcoord0 : TEXCOORD0,
   float4 l_texcoord1 : TEXCOORD1,
   float4 l_texcoord2 : TEXCOORD2,
@@ -22,7 +23,12 @@ void fshader(
 {
   l_texcoord1 /= l_texcoord1.w;
   float2 coord = (l_texcoord1.xy + float2(1)) * .5;
-  float4 reflection = tex2D(tex_0, coord);
+  float4 reflection = tex2D(reflection_tex, coord);
   float ref_factor = clamp(0.4+l_texcoord2.z*0.7, 0, 1)*reflection.a;
-  o_color = float4(lerp(tex2D(diffuse, l_texcoord0.xy).rgb, reflection.rgb, ref_factor), 1);
+  float4 diffuse = tex2D(diffuse_tex, l_texcoord0.xy);
+  float2 shadow_coord = float2(l_texcoord0.x, 1-l_texcoord0.y);
+  float2 scale = float2(2, 1);
+  shadow_coord = shadow_coord*scale - float2((scale.x - 1) / 2, 0);
+  float shadow = 1 - tex2D(shadow_tex, shadow_coord).a * 0.3;
+  o_color = float4(lerp(diffuse.rgb, reflection.rgb, ref_factor) * shadow, 1);
 }

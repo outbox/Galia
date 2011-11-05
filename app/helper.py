@@ -62,11 +62,9 @@ def make_filter_buffer(srcbuffer, shader):
     blurBuffer=base.win.makeTextureBuffer('filter buffer', srcbuffer.getXSize(), srcbuffer.getYSize())
     blurBuffer.setClearColor(Vec4(0,0,0,0))
     blurCamera=base.makeCamera2d(blurBuffer)
-    blurScene=NodePath('filter scene')
-    blurCamera.node().setScene(blurScene)
     card = srcbuffer.getTextureCard()
-    card.reparentTo(blurScene)
     card.setShader(load_shader(shader))
+    blurCamera.node().setScene(card)
     return blurBuffer
   
 def make_fbo(auxrgba=0):

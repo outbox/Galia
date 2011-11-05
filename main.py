@@ -38,6 +38,8 @@ class App(ShowBase):
     cam_pos.z = -cam_pos.y * tan(vfov()/2) * (1 - floor_ratio*2)
     self.cam.setPos(cam_pos)
 
+    self.create_label_texture()
+
     self.picsNode = render.attachNewNode("Pics")
 
     self.create_wall()
@@ -64,6 +66,8 @@ class App(ShowBase):
       pic.setTexture(texture)
       pic.setCollideMask(collision_mask)
 
+    self.picsNode.prepareScene(base.win.getGsg())
+    
     print "Loaded in", str(clock() - before) + "s"
 
     self.selection = 0
@@ -107,6 +111,10 @@ class App(ShowBase):
 
   def update(self, task):
     self.nui.update()
+    self.label_texture.setRamMipmapPointerFromInt(self.nui.label_map, 0, 640*480*4)
+    
+    self.floor.prepareScene(base.win.getGsg())
+
     self.hand_tracker.update(self.nui.users)
 
     if self.cursor_user is not None:
@@ -282,16 +290,41 @@ class App(ShowBase):
     camera.setMat(base.cam.getMat() * symmetry)
     camera.node().setScene(self.picsNode)
 
-    blur_x = make_filter_buffer(buffer, 'blur-x')
-    blur = make_filter_buffer(blur_x, 'blur-y')
+    # blur_x = make_filter_buffer(buffer, 'blur-x')
+    # blur = make_filter_buffer(blur_x, 'blur-y')
 
     maker = CardMaker(name)
     maker.setFrame(-1, 1, -1, 0)
-    card = render.attachNewNode(maker.generate())
-    card.setShader(load_shader('floor'))
-    card.setTexture(blur.getTexture())
-    card.setShaderInput('diffuse', loader.loadTexture('resources/floor.jpg'))
-    card.setMat(Mat4.rotateMat(-90, VBase3.unitX()) * Mat4.translateMat(0, 0, z))
+    self.floor = render.attachNewNode(maker.generate())
+    self.floor.setShader(load_shader('floor'))
+    self.floor.setShaderInput('reflection_tex', buffer.getTexture())
+    self.floor.setShaderInput('diffuse_tex', loader.loadTexture('resources/floor.jpg'))
+    self.floor.setShaderInput('shadow_tex', self.blurred_label_texture)
+    self.floor.setMat(Mat4.rotateMat(-90, VBase3.unitX()) * Mat4.translateMat(0, 0, z))
+
+  def create_label_texture(self):
+    self.label_texture = Texture()
+    self.label_texture.setWrapU(Texture.WMBorderColor)
+    self.label_texture.setWrapV(Texture.WMBorderColor)
+    self.label_texture.setBorderColor(VBase4())
+    self.label_texture.setCompression(Texture.CMOff)
+    self.label_texture.setup2dTexture(640, 480, Texture.TUnsignedByte, Texture.FRgba8)
+    self.label_texture.makeRamImage()
+
+    buffer = base.win.makeTextureBuffer('labels', 640, 480)
+    buffer.setClearColor(Vec4(0,0,0,0))
+    camera = base.makeCamera2d(buffer)
+    
+    maker = CardMaker('labels')
+    maker.setFrameFullscreenQuad()
+    card = NodePath(maker.generate())
+    card.setTexture(self.label_texture)
+    camera.node().setScene(card)
+
+    blur_x = make_filter_buffer(buffer, 'blur-x')
+    blur = make_filter_buffer(blur_x, 'blur-y')
+
+    self.blurred_label_texture = blur.getTexture()
 
 if __name__ == '__main__':
   loadPrcFile("local-config.prc")
