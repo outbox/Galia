@@ -29,6 +29,6 @@ void fshader(
   float2 shadow_coord = float2(l_texcoord0.x, 1-l_texcoord0.y);
   float2 scale = float2(2, 1);
   shadow_coord = shadow_coord*scale - float2((scale.x - 1) / 2, 0);
-  float shadow = 1 - tex2D(shadow_tex, shadow_coord).a * 0.3;
-  o_color = float4(lerp(diffuse.rgb, reflection.rgb, ref_factor) * shadow, 1);
+  float shadow = 1 - tex2D(shadow_tex, shadow_coord).a * 0.5;
+  o_color = float4(lerp(diffuse.rgb * shadow, reflection.rgb, ref_factor), 1);
 }

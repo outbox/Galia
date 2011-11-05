@@ -290,6 +290,8 @@ class App(ShowBase):
     camera.setMat(base.cam.getMat() * symmetry)
     camera.node().setScene(self.picsNode)
 
+    buffer = blur_buffer(buffer)
+
     maker = CardMaker(name)
     maker.setFrame(-1, 1, -1, 0)
     self.floor = render.attachNewNode(maker.generate())
@@ -318,7 +320,8 @@ class App(ShowBase):
     card.setTexture(self.label_texture)
     camera.node().setScene(card)
 
-    buffer = blur_buffer(blur_buffer(buffer))
+    for i in range(5):
+      buffer = blur_buffer(buffer)
 
     self.blurred_label_texture = buffer.getTexture()
 
