@@ -66,6 +66,10 @@ def make_filter_buffer(srcbuffer, shader):
     card.setShader(load_shader(shader))
     blurCamera.node().setScene(card)
     return blurBuffer
+
+def blur_buffer(buffer):
+  blur_x = make_filter_buffer(buffer, 'blur-x')
+  return make_filter_buffer(blur_x, 'blur-y')
   
 def make_fbo(auxrgba=0):
     winprops = WindowProperties()

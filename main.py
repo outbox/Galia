@@ -290,9 +290,6 @@ class App(ShowBase):
     camera.setMat(base.cam.getMat() * symmetry)
     camera.node().setScene(self.picsNode)
 
-    # blur_x = make_filter_buffer(buffer, 'blur-x')
-    # blur = make_filter_buffer(blur_x, 'blur-y')
-
     maker = CardMaker(name)
     maker.setFrame(-1, 1, -1, 0)
     self.floor = render.attachNewNode(maker.generate())
@@ -321,10 +318,9 @@ class App(ShowBase):
     card.setTexture(self.label_texture)
     camera.node().setScene(card)
 
-    blur_x = make_filter_buffer(buffer, 'blur-x')
-    blur = make_filter_buffer(blur_x, 'blur-y')
+    buffer = blur_buffer(blur_buffer(buffer))
 
-    self.blurred_label_texture = blur.getTexture()
+    self.blurred_label_texture = buffer.getTexture()
 
 if __name__ == '__main__':
   loadPrcFile("local-config.prc")
