@@ -1,3 +1,4 @@
+#!/usr/bin/env ppython
 import sys
 sys.path.append("./build/pynui")
 from os import listdir
