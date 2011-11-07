@@ -48,7 +48,7 @@ class App(ShowBase):
     
     maker = CardMaker("")
     frameRatio = self.camLens.getAspectRatio()
-    files = [image_path + f for f in listdir(image_path)]#[0:4]
+    files = [image_path + f for f in listdir(image_path)][0:4]
     before = clock()
     print "Loading", len(files), "files..."
     for file in files:
@@ -109,6 +109,7 @@ class App(ShowBase):
     self.accept('cursor-into-pic', self.cursor_into_pic)
     self.accept('cursor-again-pic', self.cursor_into_pic)
     self.accept('cursor-out-pic', self.cursor_out_pic)
+    self.accept('cursor-timer-end', self.cursor_timer_end)
 
   def update(self, task):
     self.nui.update()
@@ -217,9 +218,6 @@ class App(ShowBase):
     base.taskMgr.remove(str(pic.getKey()))
     interpolate(str(pic.getKey()), pic.setPos, cubic_interpolator(pic.getPos(), pos, Vec3()), 0.3)
     
-    def timeout():
-      messenger.send('thumbnail-selected', [pic])
-    base.taskMgr.doMethodLater(cursor_select_time, timeout, 'thumbnail-timer', extraArgs=[])
     self.cursor.play_timer(cursor_select_time)
 
   def cursor_out_pic(self, entry):
@@ -232,8 +230,11 @@ class App(ShowBase):
     pos = Vec3(pos.x, 0, pos.y)
     base.taskMgr.remove(str(pic.getKey()))
     interpolate(str(pic.getKey()), pic.setPos, cubic_interpolator(pic.getPos(), pos, Vec3()), 0.2)
-    base.taskMgr.remove('thumbnail-timer')
     self.cursor.cancel_timer()
+
+  def cursor_timer_end(self):
+    if self.hover_pic:
+      messenger.send('thumbnail-selected', [self.hover_pic])
 
   def time_between(self, a, b):
     return 0.3 + log(1 + (a - b).length()) / 5

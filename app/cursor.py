@@ -54,10 +54,13 @@ class Cursor:
     self.node.setTexture(self.texture_right if side == Skeleton.right else self.texture_left)
 
   def play_timer(self, length):
-    length = length * 1.28 # extra time for the timer to disappear with animation
-    interpolate('cursor-timer', self.set_timer_time, lambda t: t, length)
-    base.taskMgr.doMethodLater(length - 0.25, self.hide, 'cursor-timer', extraArgs=[])
-    
+    interpolate('cursor-timer', self.set_timer_time, lambda t: t, length * 1.28)
+    base.taskMgr.doMethodLater(length, self.timer_end, 'cursor-timer')
+
+  def timer_end(self, task):
+    self.hide()
+    messenger.send('cursor-timer-end')
+
   def cancel_timer(self):
     base.taskMgr.remove('cursor-timer')
     self.set_alpha(1)

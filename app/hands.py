@@ -3,6 +3,7 @@ from pynui import *
 from helper import *
 from panda3d.core import *
 from math import *
+from config import *
 
 class Hand(object):
   def __init__(self, user_side, pos):
@@ -69,15 +70,20 @@ class HandTracker:
           messenger.send('lost-user', [hand.user])
 
   def valid_user(self, skel):
-    if all([
+    if not all([
     skel.right.shoulder.valid,
     skel.left.shoulder.valid,
     skel.right.hand.valid or skel.left.hand.valid]):
-      right = skel.right.shoulder.position - skel.left.shoulder.position
-      forward = Vec3(-right.z, 0, right.x)
-      forward.normalize()
-      return forward.dot(VBase3.unitZ()) > cos(pi/4)
-    return False
+      return False
+    position = (skel.left.shoulder.position + skel.right.shoulder.position) / 2;
+    if position.z > max_user_distance:
+      return False
+    if atan(abs(position.x) / position.z) * 2 > max_user_angle:
+      return False
+    right = skel.right.shoulder.position - skel.left.shoulder.position
+    forward = Vec3(-right.z, 0, right.x)
+    forward.normalize()
+    return forward.dot(VBase3.unitZ()) > cos(pi/4)
 
   def update_user_side(self, user, skel, side):
     skel_side = side.__get__(skel)

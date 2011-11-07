@@ -1,3 +1,5 @@
+from math import pi
+
 image_path = "images/"
 
 # how much of the screen is occupied by the floor
@@ -16,3 +18,7 @@ thumbnail_margin = 0.05
 
 # number of seconds the cursor must hover over an item to select it
 cursor_select_time = 1.5
+
+max_user_distance = 3
+
+max_user_angle = pi / 4
