@@ -22,7 +22,7 @@ class UserState(State):
     State.__init__(self)
     self.user = user
     self.accept('hand-move', self.hand_move)
-    def lost_user(u): 
+    def lost_user(u):
       if u == user: self.lost_user()
       self.next_state(Start())
     self.accept('lost-user', lost_user)
@@ -52,57 +52,64 @@ class Start(UserState):
     self.accept('space', self.thumbnails)
   
   def hand_in(self, hand):
-    self.next_state(SlideOne(hand))
+    self.next_state(Slide(hand, 1))
 
   def thumbnails(self):
     self.next_state(Thumbnails(999))
 
-class SlideOne(UserState):
-  def __init__(self, hand):
+class Slide(UserState):
+  def __init__(self, hand, time):
     UserState.__init__(self, hand.user)
     self.hand = hand
-    self.timer(1, self.timeout)
+    self.timer(time, self.timeout)
     messenger.send('slide', [hand.side_sign])
 
   def hand_in(self, hand):
-    if hand != self.hand and hand.user == self.hand.user:
+    if hand.side != self.hand.side and hand.user == self.hand.user:
       self.next_state(Thumbnails(self.hand.user))
 
   def timeout(self):
-    self.next_state(SlideRepeat(self.hand))
+    self.next_state(Slide(self.hand, 0.5))
   
   def hand_out(self, hand):
-    if hand == self.hand:
-      self.next_state(Start())
-
-class SlideRepeat(UserState):
-  def __init__(self, hand):
-    UserState.__init__(self, hand.user)
-    self.hand = hand
-    self.timer(0.5, self.timeout)
-    messenger.send('slide', [hand.side_sign])
-
-  def hand_in(self, hand):
-    if hand != self.hand and hand.user == self.hand.user:
-      self.next_state(Thumbnails(self.hand.user))
-
-  def timeout(self):
-    self.next_state(SlideRepeat(self.hand))
-
-  def hand_out(self, hand):
-    if hand == self.hand:
+    if hand.user_side == self.hand.user_side:
       self.next_state(Start())
 
 class Thumbnails(UserState):
   def __init__(self, user):
     UserState.__init__(self, user)
-    self.user = user
     messenger.send('show-thumbnails', [user])
-    self.accept('thumbnail-selected', self.thumbnail_selected)
+    
+    self.accept('cursor-into-pic', self.cursor_into_pic)
+    self.accept('cursor-again-pic', self.cursor_into_pic)
 
+  def cursor_into_pic(self, entry):
+    pic = entry.getIntoNodePath()
+    if base.taskMgr.hasTaskNamed(str(pic.getKey())): return
+    self.next_state(ThumbnailHover(self.user, pic))
+  
   def lost_user(self):
     messenger.send('hide-thumbnails')
 
-  def thumbnail_selected(self, node):
+class ThumbnailHover(UserState):
+  def __init__(self, user, pic):
+    UserState.__init__(self, user)
+    self.pic = pic
+    messenger.send('highlight-pic', [pic])
+    messenger.send('cursor-play-timer')
+    self.accept('cursor-out-pic', self.cursor_out)
+    self.accept('cursor-timer-end', self.timer_end)
+
+  def cursor_out(self, entry):
+    if self.pic != entry.getIntoNodePath(): return
+    messenger.send('cursor-cancel-timer')
+    self.next_state(Thumbnails(self.user))
+
+  def timer_end(self):
+    messenger.send('select-pic', [self.pic])
     messenger.send('hide-thumbnails')
     self.next_state(Start())
+
+  def lost_user(self):
+    messenger.send('hide-thumbnails')
+    messenger.send('cursor-cancel-timer')

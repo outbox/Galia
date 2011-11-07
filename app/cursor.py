@@ -1,9 +1,11 @@
 from panda3d.core import *
+from direct.showbase.DirectObject import DirectObject
 from pynui import *
 from helper import *
 from math import *
+from config import *
 
-class Cursor:
+class Cursor(DirectObject):
   def __init__(self, app):
     size = 0.2
     maker = CardMaker("")
@@ -36,26 +38,35 @@ class Cursor:
 
     self.set_timer_time(1)
 
+    self.accept('cursor-play-timer', self.play_timer)
+    self.accept('cursor-cancel-timer', self.cancel_timer)
+
   def set_alpha(self, alpha):
     self.node.setColor(1,1,1,alpha)
 
   def show(self):
-    self.node.show()
-    self.set_alpha(0)
     base.taskMgr.remove('cursor-show')
-    interpolate('cursor-show', self.set_alpha, lambda t: t, 0.2)
+    if self.node.isHidden():
+      self.node.show()
+      self.set_alpha(0)
+      interpolate('cursor-show', self.set_alpha, lambda t: t, 0.2)
+    else:
+      self.set_alpha(1)
 
   def hide(self):
-    self.set_alpha(1)
     base.taskMgr.remove('cursor-show')
-    interpolate('cursor-show', self.set_alpha, lambda t: 1-t, 0.25, on_done=self.node.hide)
+    if not self.node.isHidden():
+      self.node.hide()
+      self.set_alpha(1)
+      interpolate('cursor-show', self.set_alpha, lambda t: 1-t, 0.25, on_done=self.node.hide)
 
   def set_side(self, side):
     self.node.setTexture(self.texture_right if side == Skeleton.right else self.texture_left)
 
-  def play_timer(self, length):
-    interpolate('cursor-timer', self.set_timer_time, lambda t: t, length * 1.28)
-    base.taskMgr.doMethodLater(length, self.timer_end, 'cursor-timer')
+  def play_timer(self):
+    animation = cursor_select_time * 1.28 # extra time in animation to account for fade out
+    interpolate('cursor-timer', self.set_timer_time, lambda t: t, animation)
+    base.taskMgr.doMethodLater(cursor_select_time, self.timer_end, 'cursor-timer')
 
   def timer_end(self, task):
     self.hide()

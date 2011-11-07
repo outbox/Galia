@@ -48,7 +48,7 @@ class App(ShowBase):
     
     maker = CardMaker("")
     frameRatio = self.camLens.getAspectRatio()
-    files = [image_path + f for f in listdir(image_path)][0:4]
+    files = [image_path + f for f in listdir(image_path)][0:10]
     before = clock()
     print "Loading", len(files), "files..."
     for file in files:
@@ -95,8 +95,6 @@ class App(ShowBase):
     self.update_task = PythonTask(self.update, 'UpdateTask')
     self.taskMgr.add(self.update_task)
 
-    self.hover_pic = None
-
     self.thumbnail_layout = Flow(self.picsNode.getChildren(), 2, self.wall_top, pic_margin, thumbnail_margin)
 
     self.hand_tracker = HandTracker()
@@ -105,11 +103,8 @@ class App(ShowBase):
     self.accept('slide', self.slide)
     self.accept('show-thumbnails', self.show_thumbnails)
     self.accept('hide-thumbnails', self.hide_thumbnails)
-
-    self.accept('cursor-into-pic', self.cursor_into_pic)
-    self.accept('cursor-again-pic', self.cursor_into_pic)
-    self.accept('cursor-out-pic', self.cursor_out_pic)
-    self.accept('cursor-timer-end', self.cursor_timer_end)
+    self.accept('highlight-pic', self.highlight_pic)
+    self.accept('select-pic', self.select_pic)
 
   def update(self, task):
     self.nui.update()
@@ -186,11 +181,11 @@ class App(ShowBase):
     for (pic, pos, scale) in self.thumbnail_layout.layout_items:
       pos = Vec3(pos.x, 0, pos.y)
       scale = Vec3(scale.x, 1, scale.y)
-      self.animate_pic(pic, pos, scale, self.time_between(pos, pic.getPos()))
+      if pic.getPos() != pos or pic.getScale() != scale:
+        self.animate_pic(pic, pos, scale, self.time_between(pos, pic.getPos()))
 
   def hide_thumbnails(self):
     self.cursor_user = None
-    self.hover_pic = None
     self.cursor_ray.setDirection(Vec3(1,0,0))
     self.rearrange_pics(True)
 
@@ -201,15 +196,8 @@ class App(ShowBase):
       index += 1
     return -1
     
-  def cursor_into_pic(self, entry):
-    if self.hover_pic: return
-    pic = entry.getIntoNodePath()
-    if base.taskMgr.hasTaskNamed(str(pic.getKey())): return
-    
-    self.hover_pic = pic
+  def highlight_pic(self, pic):
     index = self.index_of_pic(pic)
-    self.selection = index
-
     pos = self.thumbnail_layout.layout_items[index][1]
     pos = Vec3(pos.x, 0, pos.y)
     dir = base.cam.getPos() - pos
@@ -217,27 +205,12 @@ class App(ShowBase):
     pos += dir * 0.2
     base.taskMgr.remove(str(pic.getKey()))
     interpolate(str(pic.getKey()), pic.setPos, cubic_interpolator(pic.getPos(), pos, Vec3()), 0.3)
-    
-    self.cursor.play_timer(cursor_select_time)
 
-  def cursor_out_pic(self, entry):
-    if not self.cursor_user: return
-    pic = entry.getIntoNodePath()
-    if pic != self.hover_pic: return
-    self.hover_pic = None
-    index = self.index_of_pic(pic)
-    pos = self.thumbnail_layout.layout_items[index][1]
-    pos = Vec3(pos.x, 0, pos.y)
-    base.taskMgr.remove(str(pic.getKey()))
-    interpolate(str(pic.getKey()), pic.setPos, cubic_interpolator(pic.getPos(), pos, Vec3()), 0.2)
-    self.cursor.cancel_timer()
-
-  def cursor_timer_end(self):
-    if self.hover_pic:
-      messenger.send('thumbnail-selected', [self.hover_pic])
+  def select_pic(self, pic):
+    self.selection = self.index_of_pic(pic)
 
   def time_between(self, a, b):
-    return 0.3 + log(1 + (a - b).length()) / 5
+    return 0.2 + log(1 + (a - b).length()) / 5
     
   # Return the size that will fit the wall at a desired aspect ratio
   def fit_wall(self, aspect_ratio, margin):
