@@ -23,8 +23,9 @@ class UserState(State):
     self.user = user
     self.accept('hand-move', self.hand_move)
     def lost_user(u):
-      if u == user: self.lost_user()
-      self.next_state(Start())
+      if u == user: 
+        self.lost_user()
+        self.next_state(Start())
     self.accept('lost-user', lost_user)
 
   def hand_move(self, hand):
