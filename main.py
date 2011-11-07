@@ -210,7 +210,7 @@ class App(ShowBase):
     self.selection = self.index_of_pic(pic)
 
   def time_between(self, a, b):
-    return 0.2 + log(1 + (a - b).length()) / 5
+    return min(2, 0.2 + log(1 + (a - b).length()) / 5)
     
   # Return the size that will fit the wall at a desired aspect ratio
   def fit_wall(self, aspect_ratio, margin):
