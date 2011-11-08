@@ -212,7 +212,6 @@ class App(ShowBase):
 
   def arrange_normal(self):
     self.cursor_user = None
-    self.cursor_ray.setDirection(Vec3(1,0,0))
     self.rearrange_pics(True)
 
   def index_of_pic(self, pic):
@@ -234,6 +233,8 @@ class App(ShowBase):
     pos += dir * 0.2
     base.taskMgr.remove(str(pic.getKey()))
     interpolate(str(pic.getKey()), pic.setPos, cubic_interpolator(pic.getPos(), pos, Vec3()), 0.3)
+
+  def arrow(self)
 
   def select_pic(self, pic):
     self.selection = self.index_of_pic(pic)

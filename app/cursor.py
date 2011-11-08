@@ -53,7 +53,6 @@ class Cursor(DirectObject):
   def hide(self):
     base.taskMgr.remove('cursor-show')
     if not self.node.isHidden():
-      self.node.hide()
       self.set_alpha(1)
       interpolate('cursor-show', self.set_alpha, lambda t: 1-t, 0.25, on_done=self.node.hide)
 
@@ -75,8 +74,4 @@ class Cursor(DirectObject):
     self.set_timer_time(1)
 
   def set_timer_time(self, time):
-    x_frames, y_frames = 8, 8
-    frame = round(time * (x_frames * y_frames - 1))
-    x = frame % y_frames * 1.0 / x_frames
-    y = (y_frames - frame // y_frames - 1) * 1.0 / y_frames
-    self.node.setShaderInput('timer_frame', Vec4(x, y, 1.0 / x_frames, 1.0 / y_frames))
+    self.node.setShaderInput('timer_frame', animation_transform(8, 8, time))

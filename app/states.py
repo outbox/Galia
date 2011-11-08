@@ -101,6 +101,7 @@ class Thumbnails(UserState):
     self.next_state(ThumbnailHover(self.user, pic))
   
   def lost_user(self):
+    base.cursor.hide()
     base.arrange_normal()
 
   def timeout(self):
