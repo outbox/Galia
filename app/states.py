@@ -1,6 +1,7 @@
 from panda3d.core import *
 from direct.task import Task
 from direct.showbase.DirectObject import DirectObject
+from config import *
 
 # Helper stuff
 
@@ -51,12 +52,19 @@ class Start(UserState):
   def __init__(self):
     UserState.__init__(self, None)
     self.accept('space', self.thumbnails)
+    self.timer(automatic_slide_interval, self.timeout)
+
+  def timeout(self):
+    if len(base.hand_tracker.hands) == 0:
+      base.slide(1)
+    self.timer(automatic_slide_interval, self.timeout)
   
   def hand_in(self, hand):
     self.next_state(Slide(hand, 1))
 
   def thumbnails(self):
-    self.next_state(Thumbnails(999))
+    if not base.win.isFullscreen():
+      self.next_state(Thumbnails(999))
 
 
 class Slide(UserState):

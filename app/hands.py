@@ -55,10 +55,11 @@ class HandTracker:
         self.update_user_side(user, skel, Skeleton.right)
         self.update_user_side(user, skel, Skeleton.left)
     
-    mouse = base.mouseWatcherNode
-    if mouse.hasMouse() and not (mouse.getMouseX() == -1 and mouse.getMouseY() == 1):
-      pos = Vec3(mouse.getMouseX(), mouse.getMouseY(), 0)
-      self.create_or_update_hand(999, Skeleton.left if pos.x < 0 else Skeleton.right, pos)
+    if not base.win.isFullscreen():
+      mouse = base.mouseWatcherNode
+      if mouse.hasMouse() and not (mouse.getMouseX() == -1 and mouse.getMouseY() == 1):
+        pos = Vec3(mouse.getMouseX(), mouse.getMouseY(), 0)
+        self.create_or_update_hand(999, Skeleton.left if pos.x < 0 else Skeleton.right, pos)
       
     for (user_side, hand) in self.hands.items():
       if hand.generation != self.generation:

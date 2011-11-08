@@ -31,6 +31,10 @@ class App(ShowBase):
 
     base.disableMouse()
 
+    props = WindowProperties()
+    props.setCursorHidden(base.win.isFullscreen())
+    base.win.requestProperties(props)
+
     self.win.setClearColor(VBase4(0, 0, 0, 0))
 
     self.nui = Nui()
