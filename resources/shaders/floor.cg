@@ -1,0 +1,35 @@
+void vshader(
+  float4 vtx_position : POSITION,
+  out float4 l_position : POSITION,
+  float4 vtx_texcoord0 : TEXCOORD0,
+  out float4 l_texcoord0 : TEXCOORD0,
+  out float4 l_texcoord1 : TEXCOORD1,
+  out float4 l_texcoord2 : TEXCOORD2,
+  uniform float4x4 mat_modelproj)
+{
+  l_texcoord2 = vtx_position;
+  l_texcoord1 = l_position = mul(mat_modelproj, vtx_position);
+  l_texcoord0 = vtx_texcoord0;
+}
+ 
+void fshader(
+  uniform sampler2D diffuse_tex,
+  uniform sampler2D reflection_tex,
+  uniform sampler2D shadow_tex,
+  float4 l_texcoord0 : TEXCOORD0,
+  float4 l_texcoord1 : TEXCOORD1,
+  float4 l_texcoord2 : TEXCOORD2,
+  out float4 o_color : COLOR)
+{
+  l_texcoord1 /= l_texcoord1.w;
+  float2 coord = (l_texcoord1.xy + float2(1)) * .5;
+  float4 reflection = tex2D(reflection_tex, coord);
+  float ref_factor = clamp(0.4+l_texcoord2.z*0.7, 0, 1)*reflection.a;
+  float4 diffuse = tex2D(diffuse_tex, l_texcoord0.xy);
+  float2 shadow_coord = float2(l_texcoord0.x, 1-l_texcoord0.y);
+  float2 scale = float2(2, 1);
+  shadow_coord = shadow_coord*scale - float2((scale.x - 1) / 2, 0);
+  float fade = max(0, min(1, (0.5 - abs(shadow_coord.x - 0.5)) * 2.0));
+  float shadow = 1 - tex2D(shadow_tex, shadow_coord).a * fade * 0.5;
+  o_color = float4(lerp(diffuse.rgb * shadow, reflection.rgb, ref_factor), 1);
+}

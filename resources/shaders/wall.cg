@@ -1,0 +1,24 @@
+void vshader(
+  float4 vtx_position : POSITION,
+  out float4 l_position : POSITION,
+  float4 vtx_texcoord0 : TEXCOORD0,
+  out float4 l_texcoord0 : TEXCOORD0,
+  out float4 l_texcoord1 : TEXCOORD1,
+  uniform float4x4 mat_modelproj)
+{
+  l_texcoord1 = l_position = mul(mat_modelproj, vtx_position);
+  l_texcoord0 = vtx_texcoord0;
+}
+ 
+void fshader(
+  uniform sampler2D shadow,
+  uniform sampler2D diffuse,
+  float4 l_texcoord0 : TEXCOORD0,
+  float4 l_texcoord1 : TEXCOORD1,
+  out float4 o_color : COLOR)
+{
+  float2 coord = (l_texcoord1.xy / l_texcoord1.w + float2(1)) / 2;
+  float4 shadow_color = tex2D(shadow, coord);
+  float shadow_factor = (1-shadow_color.a) * 0.5 + 0.5;
+  o_color = float4(tex2D(diffuse, l_texcoord0.xy).rgb * shadow_factor, 1);
+}

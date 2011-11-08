@@ -2,11 +2,11 @@
 #include "nui_data.h"
 #include <XnOpenNI.h>
 #include <XnCodecIDs.h>
-#include <boost/thread.hpp>
 #include <string>
 #include <signal.h>
+#include <boost/scoped_ptr.hpp>
 
-static nui_data data, data_back;
+static boost::scoped_ptr<nui_data> data, data_back;
 static boost::mutex data_mutex;
 static XnContext* context;
 static XnNodeHandle userGenerator;
@@ -15,9 +15,9 @@ static XnNodeHandle recorder;
 
 void add_event(nui_event::event_type event, XnUserID user) {
   for (int i=0; i<max_events;++i) {
-    if (!data.events[i].event) {
-      data.events[i].event = event;
-      data.events[i].user = user;
+    if (!data_back->events[i].event) {
+      data_back->events[i].event = event;
+      data_back->events[i].user = user;
       return;
     }
   }
@@ -112,6 +112,9 @@ void openni_loop(bool record, std::string replay) {
   signal(SIGKILL, sighandler);
   signal(SIGTERM, sighandler);
   
+  data.reset(new nui_data);
+  data_back.reset(new nui_data);
+  
   printf("OpenNI thread started.\n");
   
   check_status(xnInit(&context), "Init");
@@ -150,10 +153,10 @@ void openni_loop(bool record, std::string replay) {
   XnDepthMetaData depthData;
   depthData.pMap = &mapData;
   xnGetDepthMetaData(depthGenerator, &depthData);
-  data.width = depthData.pMap->Res.X;
-  data.height = depthData.pMap->Res.Y;
+  data_back->width = depthData.pMap->Res.X;
+  data_back->height = depthData.pMap->Res.Y;
   
-  if (data.width*data.height > sizeof(data.depth_map) / sizeof(XnPoint3D)) {
+  if (data_back->width * data_back->height * sizeof(XnPoint3D) > sizeof(data_back->depth_map) ) {
     printf("Depth map is too big\n");
     exit(1);
   }
@@ -170,26 +173,26 @@ void openni_loop(bool record, std::string replay) {
     XnSceneMetaData smd;
     smd.pMap = &mapData;
     xnGetUserPixels(userGenerator, 0, &smd);
-    memcpy(data_back.label_map, smd.pData, data_back.width*data_back.height*sizeof(XnLabel));
+    memcpy(data_back->label_map, smd.pData, data_back->width*data_back->height*sizeof(XnLabel));
     
     XnDepthMetaData depthData;
     depthData.pMap = &mapData;
     xnGetDepthMetaData(depthGenerator, &depthData);
     const XnDepthPixel* source = depthData.pData;
-    XnPoint3D* target = data_back.depth_map;
+    XnPoint3D* target = data_back->depth_map;
     
-    for (unsigned int y=0; y<data_back.height; y++) {
-      for (unsigned int x=0; x < data_back.width; ++x, ++target, ++source) {
+    for (unsigned int y=0; y<data_back->height; y++) {
+      for (unsigned int x=0; x < data_back->width; ++x, ++target, ++source) {
         target->X = x;
         target->Y = y;
         target->Z = *source;
       }
     }
     
-    xnConvertProjectiveToRealWorld(depthGenerator, data_back.width*data_back.height, data_back.depth_map, data_back.depth_map);
+    xnConvertProjectiveToRealWorld(depthGenerator, data_back->width*data_back->height, data_back->depth_map, data_back->depth_map);
     
     for (int i=0; i<max_users; ++i) {
-      data_back.users[i] = false;
+      data_back->users[i] = false;
     }
     
     XnUserID users[15];
@@ -197,23 +200,28 @@ void openni_loop(bool record, std::string replay) {
     xnGetUsers(userGenerator, users, &user_count);
     for (int i = 0; i<user_count; ++i) {
       XnUserID user = users[i];
-      data_back.users[user] = true;
+      data_back->users[user] = true;
       for (int j = 1; j < joint_count; ++j) {
-        xnGetSkeletonJoint(userGenerator, user, (XnSkeletonJoint)j, &data_back.joints[user][j]);
+        xnGetSkeletonJoint(userGenerator, user, (XnSkeletonJoint)j, &data_back->joints[user][j]);
       }
     }
     
     {
       boost::lock_guard<boost::mutex> lock(data_mutex);
-      memcpy(&data, &data_back, sizeof(nui_data));
+      for (int i = 0; i<max_events && data->events[i].event; ++i) {
+        add_event(data->events[i].event, data->events[i].user);
+      }
+      data.swap(data_back);
     }
   }
 }
 
-void get_nui_data(nui_data* data) {
-  boost::lock_guard<boost::mutex> lock(data_mutex);
-  *data = ::data;
-  ::data.clear_events();
+boost::mutex& get_nui_mutex() {
+  return data_mutex;
+}
+
+nui_data& get_nui_data() {
+  return *data;
 }
 
 struct callable{

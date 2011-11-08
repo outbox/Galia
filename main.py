@@ -1,216 +1,343 @@
+#!/usr/bin/env ppython
 import sys
-import os
-from pprint import pprint
+sys.path.append("./build/pynui")
+from os import listdir
 from math import *
 from time import clock
+from sets import Set
 
-sys.path.append("./build/pynui")
 from pynui import *
-
-from TouchCanvas import *
+from app.hands import *
+from app.cursor import *
+from app.helper import *
+from app.config import *
+from app.flow import *
+import app.states as states
 
 from panda3d.core import *
 from direct.interval.MetaInterval import Sequence
 from direct.showbase.ShowBase import ShowBase
 from direct.task import Task
+from direct.filter.CommonFilters import CommonFilters
 
-class CubicInterpolator:
-  def __init__(self, p0, p1, v0):
-    self.a = -2*p1 + v0 + 2*p0
-    self.b = p1 - self.a - v0 - p0
-    self.c = v0
-    self.d = p0
-    
-  def __call__(self, t):
-    t2 = t*t
-    t3 = t2*t
-    return self.a * t3 + self.b * t2 + self.c * t + self.d
+collision_mask = BitMask32(0x10)
 
-class Hand:
-  def __init__(self, app):
-    y = -0.01
-    size = 0.06
-    maker = CardMaker("")
-    maker.setFrame(
-      Point3(-size/2, y, -size),
-      Point3(size/2, y, -size),
-      Point3(size/2, y, 0),
-      Point3(-size/2, y, 0))
-
-    def texture(file):
-      t = loader.loadTexture(file)
-      t.setWrapU(Texture.WMBorderColor)
-      t.setWrapV(Texture.WMBorderColor)
-      t.setBorderColor(VBase4())
-      return t
-    self.texture = texture("resources/hand.png")
-    self.drag_texture = texture("resources/hand-drag.png")
-
-    self.node = NodePath(maker.generate())
-    self.node.setTexture(self.texture)
-    self.node.setPos(0, 0, -2)
-    self.node.setTransparency(TransparencyAttrib.MAlpha, 1)
-    self.node.setTwoSided(True)
-    self.node.reparentTo(app.render)
-
-  def set_side(self, side):
-    self.node.setScale(1 if side == Skeleton.right else -1, 1, 1)
-
-  def set_drag(self, drag):
-    self.node.setTexture(self.drag_texture if drag else self.texture)
+def file_list():
+  return [image_path + f for f in sorted(listdir(image_path))]
 
 class App(ShowBase):
   def __init__(self):
     ShowBase.__init__(self)
 
-    self.image_path = "images/"
-    self.pic_stride = 2.05
-
     base.disableMouse()
+
+    props = WindowProperties()
+    props.setCursorHidden(base.win.isFullscreen())
+    base.win.requestProperties(props)
 
     self.win.setClearColor(VBase4(0, 0, 0, 0))
 
     self.nui = Nui()
-    self.nui.smooth_factor = 0.8
-    self.taskMgr.add(self.nui_task, "NuiTask")
-
-    self.cam.setPos(0, -1, 0)
+    self.nui.smooth_factor = 0.9
+    
     self.camLens.setFov(90)
     self.camLens.setNear(0.01)
     self.camLens.setFar(2)
+    cam_pos = Vec3(0, -1, 0)
+    cam_pos.z = -cam_pos.y * tan(vfov()/2) * (1 - floor_ratio*2)
+    self.cam.setPos(cam_pos)
+
+    self.create_label_texture()
 
     self.picsNode = render.attachNewNode("Pics")
-    self.thumbsNode = render.attachNewNode("Thumbs")
-    self.thumbsNode
 
-    maker = CardMaker("")
-    frameRatio = self.camLens.getAspectRatio()
-    left = 0
-    files = [self.image_path + f for f in os.listdir(self.image_path)][0:5]
+    self.create_wall()
+    self.create_floor()
+    self.create_url_overlay()
+
+    self.loaded_files = Set()
+    
     before = clock()
-    print "Loading", len(files), "files..."
-    for file in files:
-      try:
-         texture = loader.loadTexture(file)
-      except:
-        continue
-      texture.setMinfilter(Texture.FTLinearMipmapLinear)
-      texture.setAnisotropicDegree(4)
-      textureRatio = texture.getOrigFileXSize() * 1.0 / texture.getOrigFileYSize()
-      scale = textureRatio/frameRatio if textureRatio < frameRatio else 1
-      maker.setFrame(
-        Point3(-1 * scale, 0, -1 / textureRatio * scale),
-        Point3(1 * scale, 0, -1 / textureRatio * scale),
-        Point3(1 * scale, 0, 1 / textureRatio * scale),
-        Point3(-1 * scale, 0, 1 / textureRatio * scale))
-
-      pic = NodePath(maker.generate())
-      pic.reparentTo(self.picsNode)
-      pic.setTexture(texture)
-      pic.setPos(left, 0, 0)
-      
-      thumb = NodePath(maker.generate())
-      thumb.reparentTo(self.thumbsNode)
-      thumb.setTexture(texture)
-      thumb.setPos(left, 0, 0)
-
-      left += self.pic_stride
-
-    scale = min(2/left, 0.1)
-    self.thumbsNode.setScale(scale)
-    count = self.thumbsNode.getNumChildren()
-    self.thumbsNode.setPos(-scale * count, 0, self.top() * (1 - scale) * 0.9)
-      
+    print "Loading", len(file_list()), "files..."
+    for file in file_list():
+      self.load_file(file)
+    self.picsNode.prepareScene(base.win.getGsg())
     print "Loaded in", str(clock() - before) + "s"
 
-    self.hand = Hand(self)
-    
-    self.current_touch = None
-    self.touch_canvas = TouchCanvas()
-    self.touch_canvas.touch_down = self.touch_down
-    self.touch_canvas.touch_move = self.touch_move
-    self.touch_canvas.touch_up = self.touch_up
-    self.touch_canvas.cursor_move = self.cursor_move
-    self.touch_canvas.cursor_appear = self.cursor_appear
-    self.touch_canvas.cursor_disappear = self.cursor_disappear
+    self.selection = 0
 
-  def top(self, y = 0):
-    vfov = radians(self.camLens.getVfov())
-    return (y - self.cam.getPos().y) * tan(vfov/2)
+    for (pic, pos, scale) in self.pics_pos_scale():
+      pic.setScale(scale)
+      pic.setPos(pos)
+
+    self.cursor = Cursor(self)
+    self.cursor_user = None
     
-  def nui_task(self, task):
+    base.cTrav = CollisionTraverser('CollisionTraverser')    
+    pickerNode = CollisionNode('cursor')
+    pickerNode.setFromCollideMask(collision_mask)
+    self.cursor_ray = CollisionRay(self.cam.getPos(), Vec3.unitZ())
+    pickerNode.addSolid(self.cursor_ray)
+    pickerNP = render.attachNewNode(pickerNode)
+    self.collision_handler = CollisionHandlerEvent()
+    self.collision_handler.addInPattern('%fn-into-%in')
+    self.collision_handler.addAgainPattern('%fn-again-%in')
+    self.collision_handler.addOutPattern('%fn-out-%in')
+    base.cTrav.addCollider(pickerNP, self.collision_handler)
+
+    self.update_task = PythonTask(self.update, 'UpdateTask')
+    self.taskMgr.add(self.update_task)
+
+    self.hand_tracker = HandTracker()
+    states.Start()
+
+    self.last_look_for_new_file = 0
+
+    self.thumbnail_layout = None
+
+  def load_file(self, file):
+    self.loaded_files.add(file)
+    try:
+         texture = loader.loadTexture(file)
+    except:
+      return
+    texture.setMinfilter(Texture.FTLinearMipmapLinear)
+    texture.setWrapU(Texture.WMClamp)
+    texture.setWrapV(Texture.WMClamp)
+    
+    maker = CardMaker('pic')
+    maker.setFrame(-1, 1, -1, 1)
+    pic = self.picsNode.attachNewNode(maker.generate())
+    pic.setTransparency(TransparencyAttrib.MAlpha, 1)
+    pic.setTexture(texture)
+    pic.setCollideMask(collision_mask)
+    return pic
+
+  def look_for_new_file(self):
+    pic = None
+    for file in file_list():
+      if file not in self.loaded_files:
+        print 'Loading new image ', file
+        pic = self.load_file(file)
+        (pic, pos, scale) = self.pics_pos_scale()[-1]
+        pic.setScale(scale)
+        pic.setPos(pos + Vec3(1,0,0))
+        break
+
+  def update(self, task):
     self.nui.update()
-    self.touch_canvas.update(self.nui.users)
+    self.label_texture.setRamMipmapPointerFromInt(self.nui.label_map, 0, 640*480*4)
+    
+    self.floor.prepareScene(base.win.getGsg())
+
+    self.hand_tracker.update(self.nui.users)
+
+    if self.cursor_user is not None:
+      left_hand = self.hand_tracker.hands.get((self.cursor_user, Skeleton.left), None)
+      right_hand = self.hand_tracker.hands.get((self.cursor_user, Skeleton.right), None)
+      if left_hand is None or (right_hand is not None and right_hand.position.y > left_hand.position.y):
+        hand = right_hand
+      else:
+        hand = left_hand
+      if hand:
+        self.cursor.set_side(hand.side)
+        pos = hand.position
+        pos.x /= 0.25
+        pos.y /= 0.2
+        self.cursor.node.setPos(pos.x, 0, (pos.y + 1) / 2 * self.wall_top)
+        self.cursor_ray.setDirection(self.cursor.node.getPos() - self.cam.getPos())
+
+    if task.time - self.last_look_for_new_file > look_for_files_interval:
+      self.last_look_for_new_file = task.time
+      self.look_for_new_file()
+
     return Task.cont
 
-  def interpolate_task(self, task, interpolator, time, axis, node):
-    a = min(1, task.time/time)
-    v = node.getPos()
-    v.__setattr__(axis, interpolator(a))
-    node.setPos(v)
-    return Task.cont if a < 1 else Task.done
+  # Iterate through the default positions and scales of the pictures
+  def pics_pos_scale(self):
+    items = []
+    index = 0
+    for pic in self.picsNode.getChildren():
+      texture = pic.getTexture()
+      aspect_ratio = texture.getXSize() * 1.0 / texture.getYSize()
+      (width, height) = self.fit_wall(aspect_ratio, pic_margin + pic_strip_width)
+      scale = Vec3(width / 2, 1, height / 2)
 
-  def interpolate(self, name, node, axis, to, speed=0, time=0.5):
-    v = node.getPos()
-    interp = CubicInterpolator(v.__getattribute__(axis), to, speed)
-    task = PythonTask(self.interpolate_task, name)
-    self.taskMgr.add(task, extraArgs=[task, interp, time, axis, node])
+      if index == self.selection - 1:
+        x = -1 - scale.x + pic_strip_width
+      elif index == self.selection:
+        x = 0
+      elif index == self.selection + 1:
+        x = 1 + scale.x - pic_strip_width
+      else:
+        x = (index - self.selection) * 2
+      pos = Vec3(x, -0.01, self.wall_top/2)
+
+      items.append((pic, pos, scale))
+      index += 1
+    return items
+
+  def animate_pic(self, pic, pos, scale, time):
+    name = str(pic.getKey())
+    base.taskMgr.remove(name)
+    interpolate(name, pic.setPos, cubic_interpolator(pic.getPos(), pos, Vec3()), time)
+    interpolate(name, pic.setScale, cubic_interpolator(pic.getScale(), scale, Vec3(0,0,0)), time)
+
+  # Move each picture to its default position based on the current selection
+  def rearrange_pics(self, base_time_on_distance = False):
+    for (pic, pos, scale) in self.pics_pos_scale():
+      time = 0.5 if not base_time_on_distance else self.time_between(pos, pic.getPos())
+      self.animate_pic(pic, pos, scale, time)
+
+  def slide(self, direction):
+    new_selection = self.selection + direction
+    if new_selection < 0 or new_selection >= self.picsNode.getNumChildren():
+      return
+    self.selection = new_selection
+    self.rearrange_pics()
+
+  def arrange_thumbnails(self, user, reflow=True):
+    self.cursor.show()
+    self.cursor_user = user
+
+    if reflow or not self.thumbnail_layout:
+      self.thumbnail_layout = Flow(self.picsNode.getChildren(), 2, self.wall_top, pic_margin, thumbnail_margin)
+    for (pic, pos, scale) in self.thumbnail_layout.layout_items:
+      pos = Vec3(pos.x, 0, pos.y)
+      scale = Vec3(scale.x, 1, scale.y)
+      if pic.getPos() != pos or pic.getScale() != scale:
+        self.animate_pic(pic, pos, scale, self.time_between(pos, pic.getPos()))
+      else:
+        base.taskMgr.remove(str(pic.getKey()))
+
+  def arrange_normal(self):
+    self.cursor_user = None
+    self.cursor_ray.setDirection(Vec3(1,0,0))
+    self.rearrange_pics(True)
+
+  def index_of_pic(self, pic):
+    index = 0
+    for p in self.picsNode.getChildren():
+      if p == pic: return index
+      index += 1
+    return -1
     
-  def cursor_appear(self):
-    self.taskMgr.remove("zoom")
-    offset = 0.2
-    self.interpolate("zoom", self.picsNode, 'y', offset)
-    vfov = radians(self.camLens.getVfov())
-    self.interpolate("zoom", self.picsNode, 'z', -offset * tan(vfov/2) * 0.7)
-    self.hand.node.show()
-    self.thumbsNode.show()
+  def highlight_pic(self, pic):
+    index = self.index_of_pic(pic)
+    if index >= len(self.thumbnail_layout.layout_items):
+      print "Error: tried to highlight pic not in current thumbnail_layout."
+      return
+    pos = self.thumbnail_layout.layout_items[index][1]
+    pos = Vec3(pos.x, 0, pos.y)
+    dir = base.cam.getPos() - pos
+    dir.normalize()
+    pos += dir * 0.2
+    base.taskMgr.remove(str(pic.getKey()))
+    interpolate(str(pic.getKey()), pic.setPos, cubic_interpolator(pic.getPos(), pos, Vec3()), 0.3)
 
-  def cursor_disappear(self):
-    self.taskMgr.remove("zoom")
-    self.interpolate("zoom", self.picsNode, 'y', 0)
-    self.interpolate("zoom", self.picsNode, 'z', 0)
-    self.hand.node.hide()
-    self.thumbsNode.hide()
+  def select_pic(self, pic):
+    self.selection = self.index_of_pic(pic)
 
-  def cursor_move(self, pos, user, side):
-    self.hand.set_side(side)
-    z = min(0, max(-0.2, -pos.z*2))
-    y_scale = self.top(self.hand.node.getPos().y)
-    self.hand.node.setPos(pos.x, z, min(1, pos.y) * y_scale)
-
-  def touch_down(self, touch):
-    self.taskMgr.remove("inertia")
-    if self.current_touch is None and touch.user_side == self.touch_canvas.cursor:
-      self.current_touch = touch
-      self.hand.set_drag(True)
-
-  def touch_move(self, touch):
-    if touch != self.current_touch: return
-    if len(touch.positions) > 1:
-      delta = touch.positions[-1].x - touch.positions[-2].x
-      v = self.picsNode.getPos()
-      self.picsNode.setPos(v.x + delta, v.y, v.z)
-
-  def index_for_position(self, pos):
-    return floor(-pos / self.pic_stride + 0.5)
+  def time_between(self, a, b):
+    return min(2, 0.2 + log(1 + (a - b).length()) / 5)
     
-  def touch_up(self, touch):
-    if touch == self.current_touch:
-      touches = [t for t in self.touch_canvas.touches.values() if t.user_side == self.touch_canvas.cursor]
-      self.current_touch = touches[0] if touches else None
+  # Return the size that will fit the wall at a desired aspect ratio
+  def fit_wall(self, aspect_ratio, margin):
+    return fit(aspect_ratio, 2 - margin * 2, self.wall_top * pic_height_ratio)
 
-    if not self.current_touch:
-      self.hand.set_drag(False)
-      start = self.picsNode.getPos().x
-      speed = touch.speeds[-1].x
-      target_index = self.index_for_position(start)
-      delta = touch.positions[-1].x - touch.positions[0].x
-      if fabs(speed) > 2 and target_index == self.index_for_position(start - delta):
-        target_index += 1 if speed < 0 else -1
-      speed = min(fabs(speed), 8) * (1 if speed > 0 else -1)
-      target_index = max(0, min(self.picsNode.getNumChildren()-1, target_index))
-      target = -target_index * self.pic_stride
-      self.interpolate("inertia", self.picsNode, 'x', target, speed)
+  @property
+  def wall_top(self):
+    return (- self.cam.getPos().y) * tan(vfov()/2) + self.cam.getPos().z
+
+  def create_wall(self):
+    maker = CardMaker('wall')
+    maker.setFrame(-1, 1, 0, self.wall_top)
+    wall = render.attachNewNode(maker.generate())
+
+    buffer = base.win.makeTextureBuffer('shadow', 512, 512)
+    buffer.setClearColor(VBase4(0, 0, 0, 0))
+    display = buffer.makeDisplayRegion()
+    camera = base.cam.attachNewNode(Camera('shadow'))
+    display.setCamera(camera)
+    camera.node().setLens(base.camLens)
+    camera.node().setScene(self.picsNode)
+    camera.setPos(-0.002, 0, 0.002)
+
+    blur_x = make_filter_buffer(buffer, 'blur-x')
+    blur = make_filter_buffer(blur_x, 'blur-y')
+
+    wall.setShaderInput('shadow', blur.getTexture())
+
+    texture = loader.loadTexture("resources/wall.png")
+    texture.setWrapU(Texture.WMClamp)
+    texture.setWrapV(Texture.WMClamp)
+    wall.setShaderInput('diffuse', texture)
+
+    wall.setShader(load_shader('wall'))
+
+    wall.setBin('background', 10)
+    wall.setDepthWrite(False)
+
+  def create_floor(self):
+    name = 'floor'
+    z = 0
+
+    buffer = base.win.makeTextureBuffer(name, 512, 512)
+    buffer.setClearColor(VBase4(0, 0, 0, 0))
+    display = buffer.makeDisplayRegion()
+    camera = render.attachNewNode(Camera(name))
+    display.setCamera(camera)
+
+    camera.node().setInitialState(RenderState.make(CullFaceAttrib.makeReverse()))
+    camera.node().setLens(base.camLens)
+    symmetry = Mat4.translateMat(0,0,-z) * Mat4.scaleMat(1,1,-1) * Mat4.translateMat(0,0,z)
+    camera.setMat(base.cam.getMat() * symmetry)
+    camera.node().setScene(self.picsNode)
+
+    buffer = blur_buffer(buffer)
+
+    maker = CardMaker(name)
+    maker.setFrame(-1, 1, -1, 0)
+    self.floor = render.attachNewNode(maker.generate())
+    self.floor.setShader(load_shader('floor'))
+    self.floor.setShaderInput('reflection_tex', buffer.getTexture())
+    self.floor.setShaderInput('diffuse_tex', loader.loadTexture('resources/floor.jpg'))
+    self.floor.setShaderInput('shadow_tex', self.blurred_label_texture)
+    self.floor.setMat(Mat4.rotateMat(-90, VBase3.unitX()) * Mat4.translateMat(0, 0, z))
+
+  def create_label_texture(self):
+    self.label_texture = Texture()
+    self.label_texture.setWrapU(Texture.WMBorderColor)
+    self.label_texture.setWrapV(Texture.WMBorderColor)
+    self.label_texture.setBorderColor(VBase4())
+    self.label_texture.setCompression(Texture.CMOff)
+    self.label_texture.setup2dTexture(640, 480, Texture.TUnsignedByte, Texture.FRgba8)
+    self.label_texture.makeRamImage()
+
+    buffer = base.win.makeTextureBuffer('labels', 640, 480)
+    buffer.setClearColor(Vec4(0,0,0,0))
+    camera = base.makeCamera2d(buffer)
+    
+    maker = CardMaker('labels')
+    maker.setFrameFullscreenQuad()
+    card = NodePath(maker.generate())
+    card.setTexture(self.label_texture)
+    camera.node().setScene(card)
+
+    for i in range(5):
+      buffer = blur_buffer(buffer)
+
+    self.blurred_label_texture = buffer.getTexture()
+
+  def create_url_overlay(self):
+    texture = loader.loadTexture('resources/url.png')
+    maker = CardMaker('')
+    width = texture.getXSize() * 2.0 / 1920
+    ratio = texture.getXSize() * 1.0 / texture.getYSize()
+    maker.setFrame(1 - width, 1, -1, -1 + width/ratio*base.camLens.getAspectRatio())
+    node = render2d.attachNewNode(maker.generate())
+    node.setTransparency(TransparencyAttrib.MAlpha, 1)
+    node.setTexture(texture)
 
 if __name__ == '__main__':
   loadPrcFile("local-config.prc")
