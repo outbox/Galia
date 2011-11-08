@@ -53,6 +53,7 @@ class App(ShowBase):
 
     self.create_wall()
     self.create_floor()
+    self.create_url_overlay()
 
     self.loaded_files = Set()
     
@@ -327,6 +328,16 @@ class App(ShowBase):
       buffer = blur_buffer(buffer)
 
     self.blurred_label_texture = buffer.getTexture()
+
+  def create_url_overlay(self):
+    texture = loader.loadTexture('resources/url.png')
+    maker = CardMaker('')
+    width = texture.getXSize() * 2.0 / 1920
+    ratio = texture.getXSize() * 1.0 / texture.getYSize()
+    maker.setFrame(1 - width, 1, -1, -1 + width/ratio*base.camLens.getAspectRatio())
+    node = render2d.attachNewNode(maker.generate())
+    node.setTransparency(TransparencyAttrib.MAlpha, 1)
+    node.setTexture(texture)
 
 if __name__ == '__main__':
   loadPrcFile("local-config.prc")
