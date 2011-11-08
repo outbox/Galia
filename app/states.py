@@ -58,12 +58,13 @@ class Start(UserState):
   def thumbnails(self):
     self.next_state(Thumbnails(999))
 
+
 class Slide(UserState):
   def __init__(self, hand, time):
     UserState.__init__(self, hand.user)
     self.hand = hand
     self.timer(time, self.timeout)
-    messenger.send('slide', [hand.side_sign])
+    base.slide(hand.side_sign)
 
   def hand_in(self, hand):
     if hand.side != self.hand.side and hand.user == self.hand.user:
@@ -77,12 +78,14 @@ class Slide(UserState):
       self.next_state(Start())
 
 class Thumbnails(UserState):
-  def __init__(self, user):
+  def __init__(self, user, reflow = True):
     UserState.__init__(self, user)
-    messenger.send('show-thumbnails', [user])
+    base.show_thumbnails(user, reflow)
     
     self.accept('cursor-into-pic', self.cursor_into_pic)
     self.accept('cursor-again-pic', self.cursor_into_pic)
+
+    self.timer(4, self.timeout)
 
   def cursor_into_pic(self, entry):
     pic = entry.getIntoNodePath()
@@ -90,27 +93,31 @@ class Thumbnails(UserState):
     self.next_state(ThumbnailHover(self.user, pic))
   
   def lost_user(self):
-    messenger.send('hide-thumbnails')
+    base.hide_thumbnails()
+
+  def timeout(self):
+    base.show_thumbnails(self.user, reflow=True)
+    self.timer(4, self.timeout)
 
 class ThumbnailHover(UserState):
   def __init__(self, user, pic):
     UserState.__init__(self, user)
     self.pic = pic
-    messenger.send('highlight-pic', [pic])
-    messenger.send('cursor-play-timer')
+    base.highlight_pic(pic)
+    base.cursor.play_timer()
     self.accept('cursor-out-pic', self.cursor_out)
     self.accept('cursor-timer-end', self.timer_end)
 
   def cursor_out(self, entry):
     if self.pic != entry.getIntoNodePath(): return
-    messenger.send('cursor-cancel-timer')
-    self.next_state(Thumbnails(self.user))
+    base.cursor.cancel_timer()
+    self.next_state(Thumbnails(self.user, reflow=False))
 
   def timer_end(self):
-    messenger.send('select-pic', [self.pic])
-    messenger.send('hide-thumbnails')
+    base.select_pic(self.pic)
+    base.hide_thumbnails()
     self.next_state(Start())
 
   def lost_user(self):
-    messenger.send('hide-thumbnails')
-    messenger.send('cursor-cancel-timer')
+    base.hide_thumbnails()
+    base.cursor.hide_thumbnails()

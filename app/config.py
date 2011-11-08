@@ -1,6 +1,6 @@
 from math import pi
 
-image_path = "images/"
+image_path = "images/test/"
 
 # how much of the screen is occupied by the floor
 floor_ratio = 0.24
@@ -22,3 +22,5 @@ cursor_select_time = 1.5
 max_user_distance = 3
 
 max_user_angle = pi / 4
+
+look_for_files_interval = 2

@@ -4,6 +4,7 @@ sys.path.append("./build/pynui")
 from os import listdir
 from math import *
 from time import clock
+from sets import Set
 
 from pynui import *
 from app.hands import *
@@ -20,6 +21,9 @@ from direct.task import Task
 from direct.filter.CommonFilters import CommonFilters
 
 collision_mask = BitMask32(0x10)
+
+def file_list():
+  return [image_path + f for f in sorted(listdir(image_path))]
 
 class App(ShowBase):
   def __init__(self):
@@ -45,30 +49,14 @@ class App(ShowBase):
 
     self.create_wall()
     self.create_floor()
-    
-    maker = CardMaker("")
-    frameRatio = self.camLens.getAspectRatio()
-    files = [image_path + f for f in listdir(image_path)][0:10]
-    before = clock()
-    print "Loading", len(files), "files..."
-    for file in files:
-      try:
-         texture = loader.loadTexture(file)
-      except:
-        continue
-      texture.setMinfilter(Texture.FTLinearMipmapLinear)
-      texture.setWrapU(Texture.WMClamp)
-      texture.setWrapV(Texture.WMClamp)
-      
-      maker = CardMaker('pic')
-      maker.setFrame(-1, 1, -1, 1)
-      pic = self.picsNode.attachNewNode(maker.generate())
-      pic.setTransparency(TransparencyAttrib.MAlpha, 1)
-      pic.setTexture(texture)
-      pic.setCollideMask(collision_mask)
 
-    self.picsNode.prepareScene(base.win.getGsg())
+    self.loaded_files = Set()
     
+    before = clock()
+    print "Loading", len(file_list()), "files..."
+    for file in file_list():
+      self.load_file(file)
+    self.picsNode.prepareScene(base.win.getGsg())
     print "Loaded in", str(clock() - before) + "s"
 
     self.selection = 0
@@ -95,16 +83,41 @@ class App(ShowBase):
     self.update_task = PythonTask(self.update, 'UpdateTask')
     self.taskMgr.add(self.update_task)
 
-    self.thumbnail_layout = Flow(self.picsNode.getChildren(), 2, self.wall_top, pic_margin, thumbnail_margin)
-
     self.hand_tracker = HandTracker()
     states.Start()
 
-    self.accept('slide', self.slide)
-    self.accept('show-thumbnails', self.show_thumbnails)
-    self.accept('hide-thumbnails', self.hide_thumbnails)
-    self.accept('highlight-pic', self.highlight_pic)
-    self.accept('select-pic', self.select_pic)
+    self.last_look_for_new_file = 0
+
+    self.thumbnail_layout = None
+
+  def load_file(self, file):
+    self.loaded_files.add(file)
+    try:
+         texture = loader.loadTexture(file)
+    except:
+      return
+    texture.setMinfilter(Texture.FTLinearMipmapLinear)
+    texture.setWrapU(Texture.WMClamp)
+    texture.setWrapV(Texture.WMClamp)
+    
+    maker = CardMaker('pic')
+    maker.setFrame(-1, 1, -1, 1)
+    pic = self.picsNode.attachNewNode(maker.generate())
+    pic.setTransparency(TransparencyAttrib.MAlpha, 1)
+    pic.setTexture(texture)
+    pic.setCollideMask(collision_mask)
+    return pic
+
+  def look_for_new_file(self):
+    pic = None
+    for file in file_list():
+      if file not in self.loaded_files:
+        print 'Loading new image ', file
+        pic = self.load_file(file)
+        (pic, pos, scale) = self.pics_pos_scale()[-1]
+        pic.setScale(scale)
+        pic.setPos(pos + Vec3(1,0,0))
+        break
 
   def update(self, task):
     self.nui.update()
@@ -128,6 +141,10 @@ class App(ShowBase):
         pos.y /= 0.2
         self.cursor.node.setPos(pos.x, 0, (pos.y + 1) / 2 * self.wall_top)
         self.cursor_ray.setDirection(self.cursor.node.getPos() - self.cam.getPos())
+
+    if task.time - self.last_look_for_new_file > look_for_files_interval:
+      self.last_look_for_new_file = task.time
+      self.look_for_new_file()
 
     return Task.cont
 
@@ -174,15 +191,19 @@ class App(ShowBase):
     self.selection = new_selection
     self.rearrange_pics()
 
-  def show_thumbnails(self, user):
+  def show_thumbnails(self, user, reflow=True):
     self.cursor.show()
     self.cursor_user = user
 
+    if reflow or not self.thumbnail_layout:
+      self.thumbnail_layout = Flow(self.picsNode.getChildren(), 2, self.wall_top, pic_margin, thumbnail_margin)
     for (pic, pos, scale) in self.thumbnail_layout.layout_items:
       pos = Vec3(pos.x, 0, pos.y)
       scale = Vec3(scale.x, 1, scale.y)
       if pic.getPos() != pos or pic.getScale() != scale:
         self.animate_pic(pic, pos, scale, self.time_between(pos, pic.getPos()))
+      else:
+        base.taskMgr.remove(str(pic.getKey()))
 
   def hide_thumbnails(self):
     self.cursor_user = None
@@ -198,6 +219,9 @@ class App(ShowBase):
     
   def highlight_pic(self, pic):
     index = self.index_of_pic(pic)
+    if index >= len(self.thumbnail_layout.layout_items):
+      print "Error: tried to highlight pic not in current thumbnail_layout."
+      return
     pos = self.thumbnail_layout.layout_items[index][1]
     pos = Vec3(pos.x, 0, pos.y)
     dir = base.cam.getPos() - pos

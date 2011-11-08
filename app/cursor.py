@@ -38,9 +38,6 @@ class Cursor(DirectObject):
 
     self.set_timer_time(1)
 
-    self.accept('cursor-play-timer', self.play_timer)
-    self.accept('cursor-cancel-timer', self.cancel_timer)
-
   def set_alpha(self, alpha):
     self.node.setColor(1,1,1,alpha)
 
