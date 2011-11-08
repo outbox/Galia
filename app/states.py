@@ -80,7 +80,7 @@ class Slide(UserState):
 class Thumbnails(UserState):
   def __init__(self, user, reflow = True):
     UserState.__init__(self, user)
-    base.show_thumbnails(user, reflow)
+    base.arrange_thumbnails(user, reflow)
     
     self.accept('cursor-into-pic', self.cursor_into_pic)
     self.accept('cursor-again-pic', self.cursor_into_pic)
@@ -93,10 +93,10 @@ class Thumbnails(UserState):
     self.next_state(ThumbnailHover(self.user, pic))
   
   def lost_user(self):
-    base.hide_thumbnails()
+    base.arrange_normal()
 
   def timeout(self):
-    base.show_thumbnails(self.user, reflow=True)
+    base.arrange_thumbnails(self.user, reflow=True)
     self.timer(4, self.timeout)
 
 class ThumbnailHover(UserState):
@@ -115,9 +115,9 @@ class ThumbnailHover(UserState):
 
   def timer_end(self):
     base.select_pic(self.pic)
-    base.hide_thumbnails()
+    base.arrange_normal()
     self.next_state(Start())
 
   def lost_user(self):
-    base.hide_thumbnails()
-    base.cursor.hide_thumbnails()
+    base.arrange_normal()
+    base.cursor.hide()

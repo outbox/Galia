@@ -191,7 +191,7 @@ class App(ShowBase):
     self.selection = new_selection
     self.rearrange_pics()
 
-  def show_thumbnails(self, user, reflow=True):
+  def arrange_thumbnails(self, user, reflow=True):
     self.cursor.show()
     self.cursor_user = user
 
@@ -205,7 +205,7 @@ class App(ShowBase):
       else:
         base.taskMgr.remove(str(pic.getKey()))
 
-  def hide_thumbnails(self):
+  def arrange_normal(self):
     self.cursor_user = None
     self.cursor_ray.setDirection(Vec3(1,0,0))
     self.rearrange_pics(True)
