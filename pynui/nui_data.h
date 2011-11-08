@@ -27,6 +27,7 @@ struct nui_data {
     XnLabel label_map[640*480];
     bool users[max_users];
     XnSkeletonJointTransformation joints[max_users][joint_count];
+    XnPoint3D projected_joints[max_users][joint_count];
     nui_event events[max_events];
     
     nui_data() {

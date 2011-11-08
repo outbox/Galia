@@ -153,18 +153,19 @@ void openni_loop(bool record, std::string replay) {
   XnDepthMetaData depthData;
   depthData.pMap = &mapData;
   xnGetDepthMetaData(depthGenerator, &depthData);
-  data_back->width = depthData.pMap->Res.X;
-  data_back->height = depthData.pMap->Res.Y;
-  
-  if (data_back->width * data_back->height * sizeof(XnPoint3D) > sizeof(data_back->depth_map) ) {
-    printf("Depth map is too big\n");
-    exit(1);
-  }
   
   if(record) start_capture(recorder, depthGenerator);
   
   while (true) {
     xnWaitAnyUpdateAll(context);
+    
+    data_back->width = depthData.pMap->Res.X;
+    data_back->height = depthData.pMap->Res.Y;
+    
+    if (data_back->width * data_back->height * sizeof(XnPoint3D) > sizeof(data_back->depth_map) ) {
+      printf("Depth map is too big\n");
+      exit(1);
+    }
     
     XnOutputMetaData outputData;
     XnMapMetaData mapData;
@@ -203,8 +204,10 @@ void openni_loop(bool record, std::string replay) {
       data_back->users[user] = true;
       for (int j = 1; j < joint_count; ++j) {
         xnGetSkeletonJoint(userGenerator, user, (XnSkeletonJoint)j, &data_back->joints[user][j]);
+        data_back->projected_joints[user][j] = data_back->joints[user][j].position.position;
       }
     }
+    xnConvertRealWorldToProjective(depthGenerator, sizeof(data_back->projected_joints)/sizeof(XnPoint3D), data_back->projected_joints[0], data_back->projected_joints[0]);
     
     {
       boost::lock_guard<boost::mutex> lock(data_mutex);

@@ -10,8 +10,16 @@ float lerp(float a, float b, float t) {
   return a * (1 - t) + b * t;
 }
 
+XnPoint3D lerp(XnPoint3D a, XnPoint3D b, float t) {
+  XnPoint3D ret;
+  ret.X = lerp(a.X, b.X, t);
+  ret.Y = lerp(a.Y, b.Y, t);
+  ret.Z = lerp(a.Z, b.Z, t);
+  return ret;
+}
+
 struct Joint {
-  object position, orientation;
+  object position, orientation, projection;
   bool valid;
   str repr() {
     std::string p = extract<std::string>(position.attr("__repr__")());
@@ -30,18 +38,20 @@ struct Skeleton {
 };
 
 struct Nui {
-  object main, vec3, mat3;
+  object main, vec3, vec2, mat3;
   object users;
   std::vector<char> _label_map;
   
   float smooth_factor;
   XnSkeletonJointTransformation smooth_joints[max_users][joint_count];
+  XnPoint3D smooth_projected_joints[max_users][joint_count];
   
   Nui() : smooth_factor(0.9) {
     main = import("__main__");
     object global(main.attr("__dict__"));
     exec("from panda3d.core import *", global, global);
     vec3 = global["Vec3"];
+    vec2 = global["Vec2"];
     mat3 = global["Mat3"];
     
     users = dict();
@@ -58,6 +68,7 @@ struct Nui {
       switch (event.event) {
         case nui_event::new_user:
           memcpy(smooth_joints[event.user], data.joints[event.user], sizeof(data.joints[event.user]));
+          memcpy(smooth_projected_joints[event.user], data.projected_joints[event.user], sizeof(data.projected_joints[event.user]));
           break;
         default: break;
       }
@@ -110,24 +121,27 @@ struct Nui {
   
   void joint(nui_data& data, Joint& transform, int user, int jointIndex) {
     const float scale = 1.f/1000;
-    XnSkeletonJointTransformation& smooth_joint = smooth_joints[user][jointIndex];
     XnSkeletonJointTransformation& joint = data.joints[user][jointIndex];
-    XnVector3D old_p = smooth_joint.position.position;
-    XnVector3D p = joint.position.position;
     transform.valid = joint.position.fConfidence == 1;
     if (transform.valid) {
+      XnVector3D p = joint.position.position;
+      XnSkeletonJointTransformation& smooth_joint = smooth_joints[user][jointIndex];
       if (smooth_joint.position.fConfidence == 1) {
-        p.X = lerp(p.X, old_p.X, smooth_factor);
-        p.Y = lerp(p.Y, old_p.Y, smooth_factor);
-        p.Z = lerp(p.Z, old_p.Z, smooth_factor);
+        p = lerp(p, smooth_joint.position.position, smooth_factor);
       }
       transform.position = vec3(p.X * scale, p.Y * scale, p.Z * scale);
+      smooth_joint.position.position = p;
+      smooth_joint.position.fConfidence = joint.position.fConfidence;
+      
+      p = data.projected_joints[user][jointIndex];
+      if (smooth_joint.position.fConfidence == 1) {
+        p = lerp(p, smooth_projected_joints[user][jointIndex], smooth_factor);
+      }
+      transform.projection = vec2(p.X / data.width, p.Y / data.height);
+      smooth_projected_joints[user][jointIndex] = p;
             
       float* o = joint.orientation.orientation.elements;
       transform.orientation = mat3(o[0], o[1], o[2], o[3], o[4], o[5], o[6], o[7], o[8]);
-
-      smooth_joint.position.position = p;
-      smooth_joint.position.fConfidence = joint.position.fConfidence;
     }
   }
   
@@ -149,6 +163,7 @@ BOOST_PYTHON_MODULE(pynui)
   
   class_<Joint>("Joint")
   .def_readonly("position", &Joint::position)
+  .def_readonly("projection", &Joint::projection)
   .def_readonly("orientation", &Joint::orientation)
   .def_readonly("valid", &Joint::valid)
   .def("__repr__", &Joint::repr)
