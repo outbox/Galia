@@ -33,7 +33,7 @@ class UserState(State):
     if self.user is None or hand.user == self.user:
       if hand.positions[-1].x * hand.side_sign > 0.35:
         self.hand_in(hand)
-      elif hand.positions[-1].x * hand.side_sign < 0.25:
+      elif hand.positions[-1].x * hand.side_sign < 0.3:
         self.hand_out(hand)
 
   def lost_user(self):
