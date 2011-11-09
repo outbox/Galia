@@ -1,6 +1,7 @@
 from panda3d.core import *
 from direct.task import Task
 from direct.showbase.DirectObject import DirectObject
+from time import clock
 from config import *
 from arrow import Arrow
 
@@ -8,11 +9,12 @@ from arrow import Arrow
 
 hand_trigger = 0.35
 max_slide_wait = 2
-min_slide_wait = 0.2
+min_slide_wait = 0.5
 
 class State(DirectObject):
   def __init__(self):
     self.tasks = []
+    self.timer_task = None
 
   def next_state(self, state):
     for task in self.tasks:
@@ -21,7 +23,14 @@ class State(DirectObject):
     print 'New state:', state
 
   def timer(self, time, function):
-    self.tasks.append(base.taskMgr.doMethodLater(time, function, 'state timer', extraArgs=[]))
+    if self.timer_task:
+      self.tasks.remove(self.timer_task)
+      base.taskMgr.remove(self.timer_task)
+    if time <= 0:
+      function()
+    else:
+      self.timer_task = base.taskMgr.doMethodLater(time, function, 'state timer', extraArgs=[])
+      self.tasks.append(self.timer_task)
 
 class UserState(State):
   def __init__(self, user):
@@ -76,7 +85,7 @@ class Start(UserState):
       self.next_state(Thumbnails(999))
 
   def hand_in(self, hand):
-    self.next_state(Slide(hand, max_slide_wait))
+    self.next_state(Slide(hand))
 
   def hand_move(self, hand):
     arrow = self.arrows.get(hand.user_side, None)
@@ -99,10 +108,12 @@ class Start(UserState):
       del self.arrows[hand.user_side]
 
 class Slide(UserState):
-  def __init__(self, hand, time, arrow=None):
+  def __init__(self, hand, time=max_slide_wait, arrow=None):
     UserState.__init__(self, hand.user)
     self.hand = hand
-    self.timer(time, self.timeout)
+    self.start_time = clock()
+    self.time = time
+
     base.slide(hand.side_sign)
 
     self.arrow = arrow
@@ -111,15 +122,16 @@ class Slide(UserState):
       self.arrow.play_trigger()
     self.arrow.update(base.nui.users)
 
-    self.time = time
-
+    print 'time', time
+    self.timer(time, self.timeout)
 
   def hand_move(self, hand):
     if hand.side == self.hand.side and not self.arrow.is_playing:
-      max = 0.55
+      max_extension = 0.55
       pos = hand.positions[-1].x * hand.side_sign
-      time = (pos - hand_trigger) / (max - hand_trigger)
+      time = max(0.0, min(1.0, (pos - hand_trigger) / (max_extension - hand_trigger)))
       self.time = max_slide_wait - time * (max_slide_wait - min_slide_wait)
+      self.timer(self.time - (clock()-self.start_time), self.timeout)
       self.arrow.set_time_at_speed(time)
     self.arrow.update(base.nui.users)
     UserState.hand_move(self, hand)
@@ -138,7 +150,7 @@ class Slide(UserState):
     self.arrow.destroy()
 
   def timeout(self):
-    self.next_state(Slide(self.hand, 0.5, self.arrow))
+    self.next_state(Slide(self.hand, self.time, self.arrow))
   
 class Thumbnails(UserState):
   def __init__(self, user, reflow = True):
