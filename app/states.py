@@ -7,6 +7,8 @@ from arrow import Arrow
 # Helper stuff
 
 hand_trigger = 0.35
+max_slide_wait = 2
+min_slide_wait = 0.2
 
 class State(DirectObject):
   def __init__(self):
@@ -57,6 +59,7 @@ class Start(UserState):
     self.accept('space', self.thumbnails)
     self.timer(automatic_slide_interval, self.timeout)
     self.arrows = {}
+    self.accept('lost-hand', self.lost_hand)
 
   def timeout(self):
     if len(base.hand_tracker.hands) == 0:
@@ -73,7 +76,7 @@ class Start(UserState):
       self.next_state(Thumbnails(999))
 
   def hand_in(self, hand):
-    self.next_state(Slide(hand, 1))
+    self.next_state(Slide(hand, max_slide_wait))
 
   def hand_move(self, hand):
     arrow = self.arrows.get(hand.user_side, None)
@@ -89,6 +92,12 @@ class Start(UserState):
       del self.arrows[hand.user_side]
     UserState.hand_move(self, hand)
 
+  def lost_hand(self, hand):
+    arrow = self.arrows.get(hand.user_side, None)
+    if arrow:
+      arrow.destroy()
+      del self.arrows[hand.user_side]
+
 class Slide(UserState):
   def __init__(self, hand, time, arrow=None):
     UserState.__init__(self, hand.user)
@@ -102,11 +111,16 @@ class Slide(UserState):
       self.arrow.play_trigger()
     self.arrow.update(base.nui.users)
 
+    self.time = time
+
+
   def hand_move(self, hand):
     if hand.side == self.hand.side and not self.arrow.is_playing:
       max = 0.55
       pos = hand.positions[-1].x * hand.side_sign
-      self.arrow.set_time_at_speed((pos - hand_trigger) / (max - hand_trigger))
+      time = (pos - hand_trigger) / (max - hand_trigger)
+      self.time = max_slide_wait - time * (max_slide_wait - min_slide_wait)
+      self.arrow.set_time_at_speed(time)
     self.arrow.update(base.nui.users)
     UserState.hand_move(self, hand)
 
