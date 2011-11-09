@@ -1,13 +1,20 @@
 from panda3d.core import *
 from direct.task import Task
 from direct.showbase.DirectObject import DirectObject
+from time import clock
 from config import *
+from arrow import Arrow
 
 # Helper stuff
+
+hand_trigger = 0.35
+max_slide_wait = 2
+min_slide_wait = 0.5
 
 class State(DirectObject):
   def __init__(self):
     self.tasks = []
+    self.timer_task = None
 
   def next_state(self, state):
     for task in self.tasks:
@@ -16,7 +23,14 @@ class State(DirectObject):
     print 'New state:', state
 
   def timer(self, time, function):
-    self.tasks.append(base.taskMgr.doMethodLater(time, function, 'state timer', extraArgs=[]))
+    if self.timer_task:
+      self.tasks.remove(self.timer_task)
+      base.taskMgr.remove(self.timer_task)
+    if time <= 0:
+      function()
+    else:
+      self.timer_task = base.taskMgr.doMethodLater(time, function, 'state timer', extraArgs=[])
+      self.tasks.append(self.timer_task)
 
 class UserState(State):
   def __init__(self, user):
@@ -31,9 +45,9 @@ class UserState(State):
 
   def hand_move(self, hand):
     if self.user is None or hand.user == self.user:
-      if hand.positions[-1].x * hand.side_sign > 0.35:
+      if hand.positions[-1].x * hand.side_sign >= hand_trigger:
         self.hand_in(hand)
-      elif hand.positions[-1].x * hand.side_sign < 0.25:
+      elif hand.positions[-1].x * hand.side_sign < hand_trigger:
         self.hand_out(hand)
 
   def lost_user(self):
@@ -53,38 +67,91 @@ class Start(UserState):
     UserState.__init__(self, None)
     self.accept('space', self.thumbnails)
     self.timer(automatic_slide_interval, self.timeout)
+    self.arrows = {}
+    self.accept('lost-hand', self.lost_hand)
 
   def timeout(self):
     if len(base.hand_tracker.hands) == 0:
       base.slide(1)
     self.timer(automatic_slide_interval, self.timeout)
-  
-  def hand_in(self, hand):
-    self.next_state(Slide(hand, 1))
 
+  def next_state(self, state):
+    for a in self.arrows.values(): a.destroy()
+    self.arrows.clear()
+    UserState.next_state(self, state)
+  
   def thumbnails(self):
     if not base.win.isFullscreen():
       self.next_state(Thumbnails(999))
 
+  def hand_in(self, hand):
+    self.next_state(Slide(hand))
+
+  def hand_move(self, hand):
+    arrow = self.arrows.get(hand.user_side, None)
+    start = 0.1
+    pos = hand.positions[-1].x * hand.side_sign
+    if pos > start:
+      if not arrow:
+        self.arrows[hand.user_side] = arrow = Arrow(hand.user, hand.side)
+      arrow.set_time_at_hint((pos - start) / (hand_trigger - start))
+      arrow.update(base.nui.users)
+    elif arrow:
+      arrow.destroy()
+      del self.arrows[hand.user_side]
+    UserState.hand_move(self, hand)
+
+  def lost_hand(self, hand):
+    arrow = self.arrows.get(hand.user_side, None)
+    if arrow:
+      arrow.destroy()
+      del self.arrows[hand.user_side]
 
 class Slide(UserState):
-  def __init__(self, hand, time):
+  def __init__(self, hand, time=max_slide_wait, arrow=None):
     UserState.__init__(self, hand.user)
     self.hand = hand
-    self.timer(time, self.timeout)
+    self.start_time = clock()
+    self.time = time
+
     base.slide(hand.side_sign)
 
+    self.arrow = arrow
+    if not self.arrow:
+      self.arrow = Arrow(hand.user, hand.side)
+      self.arrow.play_trigger()
+    self.arrow.update(base.nui.users)
+
+    print 'time', time
+    self.timer(time, self.timeout)
+
+  def hand_move(self, hand):
+    if hand.side == self.hand.side and not self.arrow.is_playing:
+      max_extension = 0.55
+      pos = hand.positions[-1].x * hand.side_sign
+      time = max(0.0, min(1.0, (pos - hand_trigger) / (max_extension - hand_trigger)))
+      self.time = max_slide_wait - time * (max_slide_wait - min_slide_wait)
+      self.timer(self.time - (clock()-self.start_time), self.timeout)
+      self.arrow.set_time_at_speed(time)
+    self.arrow.update(base.nui.users)
+    UserState.hand_move(self, hand)
+
   def hand_in(self, hand):
-    if hand.side != self.hand.side and hand.user == self.hand.user:
+    if hand.side != self.hand.side:
+      self.arrow.destroy()
       self.next_state(Thumbnails(self.hand.user))
 
-  def timeout(self):
-    self.next_state(Slide(self.hand, 0.5))
-  
   def hand_out(self, hand):
-    if hand.user_side == self.hand.user_side:
+    if hand.side == self.hand.side:
+      self.arrow.destroy()
       self.next_state(Start())
 
+  def lost_user(self):
+    self.arrow.destroy()
+
+  def timeout(self):
+    self.next_state(Slide(self.hand, self.time, self.arrow))
+  
 class Thumbnails(UserState):
   def __init__(self, user, reflow = True):
     UserState.__init__(self, user)
@@ -101,6 +168,7 @@ class Thumbnails(UserState):
     self.next_state(ThumbnailHover(self.user, pic))
   
   def lost_user(self):
+    base.cursor.hide()
     base.arrange_normal()
 
   def timeout(self):

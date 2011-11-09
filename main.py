@@ -72,7 +72,7 @@ class App(ShowBase):
 
     self.cursor = Cursor(self)
     self.cursor_user = None
-    
+
     base.cTrav = CollisionTraverser('CollisionTraverser')    
     pickerNode = CollisionNode('cursor')
     pickerNode.setFromCollideMask(collision_mask)
@@ -212,7 +212,6 @@ class App(ShowBase):
 
   def arrange_normal(self):
     self.cursor_user = None
-    self.cursor_ray.setDirection(Vec3(1,0,0))
     self.rearrange_pics(True)
 
   def index_of_pic(self, pic):
