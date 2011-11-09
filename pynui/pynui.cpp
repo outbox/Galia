@@ -3,8 +3,10 @@
 #include <string>
 #include <vector>
 #include <Python.h>
+#include <cmath>
 
 using namespace boost::python;
+using namespace std;
 
 float lerp(float a, float b, float t) {
   return a * (1 - t) + b * t;
@@ -134,8 +136,9 @@ struct Nui {
       smooth_joint.position.fConfidence = joint.position.fConfidence;
       
       p = data.projected_joints[user][jointIndex];
-      if (smooth_joint.position.fConfidence == 1) {
-        p = lerp(p, smooth_projected_joints[user][jointIndex], smooth_factor);
+      XnPoint3D smooth_p = smooth_projected_joints[user][jointIndex];
+      if (smooth_joint.position.fConfidence == 1 && !isnan(smooth_p.X) && !isnan(smooth_p.Y) && !isnan(smooth_p.Z)) {
+        p = lerp(p, smooth_p, smooth_factor);
       }
       transform.projection = vec2(p.X / data.width, p.Y / data.height);
       smooth_projected_joints[user][jointIndex] = p;
