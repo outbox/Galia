@@ -97,6 +97,7 @@ def fit(aspect_ratio, container_width, container_height):
 
 def animation_transform(x_frames, y_frames, time):
   frame = round(time * (x_frames * y_frames - 1))
-  x = frame % y_frames * 1.0 / x_frames
-  y = (y_frames - frame // y_frames - 1) * 1.0 / y_frames
+  x = frame % x_frames * 1.0 / x_frames
+  y = (y_frames - frame // x_frames - 1) * 1.0 / y_frames
+  print time, frame, x, y
   return Mat3.scaleMat(1.0 / x_frames, 1.0 / y_frames) * Mat3.translateMat(x, y)
