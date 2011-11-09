@@ -72,7 +72,7 @@ class App(ShowBase):
 
     self.cursor = Cursor(self)
     self.cursor_user = None
-    
+
     base.cTrav = CollisionTraverser('CollisionTraverser')    
     pickerNode = CollisionNode('cursor')
     pickerNode.setFromCollideMask(collision_mask)
@@ -233,8 +233,6 @@ class App(ShowBase):
     pos += dir * 0.2
     base.taskMgr.remove(str(pic.getKey()))
     interpolate(str(pic.getKey()), pic.setPos, cubic_interpolator(pic.getPos(), pos, Vec3()), 0.3)
-
-  def arrow(self)
 
   def select_pic(self, pic):
     self.selection = self.index_of_pic(pic)
