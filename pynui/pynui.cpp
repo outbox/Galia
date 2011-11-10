@@ -3,7 +3,12 @@
 #include <string>
 #include <vector>
 #include <Python.h>
-#include <cmath>
+
+bool isnan(float x)
+{
+  return x != x;
+}
+
 
 using namespace boost::python;
 using namespace std;
@@ -149,14 +154,16 @@ struct Nui {
   }
   
   unsigned long label_map() {
-    return (unsigned long)&_label_map[0];
+    if (_label_map.size())
+      return (unsigned long)&_label_map[0];
+    return 0;
   }
 };
 
 BOOST_PYTHON_MODULE(pynui)
 {
   using namespace boost::python;
-  
+  PyEval_InitThreads();
   class_<Nui>("Nui")
   .def("update", &Nui::update)
   .def_readwrite("smooth_factor", &Nui::smooth_factor)
