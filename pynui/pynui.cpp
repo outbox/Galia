@@ -150,7 +150,9 @@ struct Nui {
   }
   
   unsigned long label_map() {
-    return (unsigned long)&_label_map[0];
+    if (_label_map.size())
+      return (unsigned long)&_label_map[0];
+    return 0;
   }
 };
 
