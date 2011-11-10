@@ -7,9 +7,10 @@ from config import *
 
 class Cursor(DirectObject):
   def __init__(self, app):
-    size = 0.2
+    size = 0.15
     maker = CardMaker("")
-    maker.setFrame(-size/2, size/2, -size/2, size/2)
+    offset = 0.22
+    maker.setFrame(-size/2, size/2, -size*(1-offset), size*offset)
 
     def texture(file):
       t = loader.loadTexture(file)
