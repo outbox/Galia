@@ -4,6 +4,7 @@
 #include <vector>
 #include <Python.h>
 #include <cmath>
+#include "pymath.h"
 
 using namespace boost::python;
 using namespace std;
@@ -137,7 +138,7 @@ struct Nui {
       
       p = data.projected_joints[user][jointIndex];
       XnPoint3D smooth_p = smooth_projected_joints[user][jointIndex];
-      if (smooth_joint.position.fConfidence == 1 && !isnan(smooth_p.X) && !isnan(smooth_p.Y) && !isnan(smooth_p.Z)) {
+      if (smooth_joint.position.fConfidence == 1 && !Py_IS_NAN(smooth_p.X) && !Py_IS_NAN(smooth_p.Y) && !Py_IS_NAN(smooth_p.Z)) {
         p = lerp(p, smooth_p, smooth_factor);
       }
       transform.projection = vec2(p.X / data.width, p.Y / data.height);
@@ -156,7 +157,7 @@ struct Nui {
 BOOST_PYTHON_MODULE(pynui)
 {
   using namespace boost::python;
-  
+  PyEval_InitThreads();
   class_<Nui>("Nui")
   .def("update", &Nui::update)
   .def_readwrite("smooth_factor", &Nui::smooth_factor)
