@@ -26,3 +26,5 @@ max_user_angle = pi / 4
 look_for_files_interval = 2
 
 automatic_slide_interval = 6
+
+overscan = False

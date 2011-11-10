@@ -40,6 +40,10 @@ class App(ShowBase):
     self.nui = Nui()
     self.nui.smooth_factor = 0.9
     
+    if overscan:
+      dimensions = VBase4(0.035, 0.965, 0.035, 0.965)
+      self.cam.node().getDisplayRegion(0).setDimensions(dimensions)
+      self.cam2d.node().getDisplayRegion(0).setDimensions(dimensions)
     self.camLens.setFov(90)
     self.camLens.setNear(0.01)
     self.camLens.setFar(2)
