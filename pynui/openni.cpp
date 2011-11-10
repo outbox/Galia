@@ -103,13 +103,13 @@ void start_capture(XnNodeHandle recorder, XnNodeHandle generator) {
 
 void sighandler(int signum) {
   xnRemoveNodeFromRecording(recorder, depthGenerator);
-  printf("Process %d got signal %d\n", getpid(), signum);
+  //printf("Process %d got signal %d\n", getpid(), signum);
   exit(0);
 }
 
 void openni_loop(bool record, std::string replay) {
   signal(SIGSEGV, sighandler);
-  signal(SIGKILL, sighandler);
+  //signal(SIGKILL, sighandler);
   signal(SIGTERM, sighandler);
   
   data.reset(new nui_data);
