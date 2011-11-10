@@ -28,3 +28,5 @@ look_for_files_interval = 2
 automatic_slide_interval = 6
 
 overscan = False
+
+max_pics = 150

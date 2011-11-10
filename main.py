@@ -23,7 +23,9 @@ from direct.filter.CommonFilters import CommonFilters
 collision_mask = BitMask32(0x10)
 
 def file_list():
-  return [image_path + f for f in sorted(listdir(image_path))]
+  list = [image_path + f for f in sorted(listdir(image_path))]
+  return list if len(list) <= max_pics else list[len(list)-max_pics:]
+
 
 class App(ShowBase):
   def __init__(self):
@@ -115,6 +117,11 @@ class App(ShowBase):
     pic.setTransparency(TransparencyAttrib.MAlpha, 1)
     pic.setTexture(texture)
     pic.setCollideMask(collision_mask)
+
+    while self.picsNode.getNumChildren() > max_pics and self.selection > 0:
+      self.picsNode.getChildren()[0].remove()
+      self.selection -= 1
+
     return pic
 
   def look_for_new_file(self):
