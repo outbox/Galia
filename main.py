@@ -19,13 +19,14 @@ from direct.interval.MetaInterval import Sequence
 from direct.showbase.ShowBase import ShowBase
 from direct.task import Task
 from direct.filter.CommonFilters import CommonFilters
+from direct.filter.FilterManager import FilterManager
 
 collision_mask = BitMask32(0x10)
 
 def file_list():
   return [image_path + f for f in sorted(listdir(image_path))]
 
-  
+motion_blur_enabled = True
 class App(ShowBase):
   def __init__(self):
     ShowBase.__init__(self)
@@ -49,14 +50,28 @@ class App(ShowBase):
     self.cam.setPos(cam_pos)
 
     self.create_label_texture()
-    self.picsWrapperNode = render.attachNewNode("PicsWrapper")
-    self.picsNode = self.picsWrapperNode.attachNewNode("Pics")
-    self.picsWrapperNode.setShader(load_shader("motion-blur"))
-    self.picsWrapperNode.setShaderInput("halfScreenSize", base.win.getXSize(), base.win.getYSize())
-    #self.picsNode.detachNode()
+    self.picsNode = render.attachNewNode("Pics")
     
-
-
+    if motion_blur_enabled and True:
+      mblur_buffer = base.win.makeTextureBuffer("motion blur velocities", 512, 512)
+      mblur_buffer.setClearColor(Vec4(0,0,0,0))
+      mblur_texture = mblur_buffer.getTexture()
+      mblur_buffer.setSort(-100)
+      mblur_camera = base.makeCamera(mblur_buffer)
+      mblur_camera.setTransform(self.cam.getTransform())
+      mblur_camera.node().setScene(self.picsNode)
+      mblur_camera.node().setLens(self.camLens)
+      tempnode = NodePath(PandaNode("temp node"))
+      tempnode.setShader(load_shader("velocities"))
+      mblur_camera.node().setInitialState(tempnode.getState())
+      
+      manager = FilterManager(base.win, base.cam)
+      tex = Texture()
+      quad = manager.renderSceneInto(colortex=tex)
+      quad.setShader(load_shader("motion-blur"))
+      quad.setShaderInput("scene", tex)
+      quad.setShaderInput("velocities", mblur_texture)
+    
     self.create_wall()
     self.create_floor()
     self.create_url_overlay()
@@ -133,7 +148,6 @@ class App(ShowBase):
         break
 
   def update(self, task):
-    self.picsWrapperNode.setShaderInput("halfScreenSize", base.win.getXSize()/2.0, base.win.getYSize()/2.0)
     for pic in self.picsNode.getChildren():
       node = NodePath("temp_transform_node")
       node.setTransform(pic.getPrevTransform())
@@ -270,6 +284,7 @@ class App(ShowBase):
 
     buffer = base.win.makeTextureBuffer('shadow', 512, 512)
     buffer.setClearColor(VBase4(0, 0, 0, 0))
+    buffer.setSort(-1)
     display = buffer.makeDisplayRegion()
     camera = base.cam.attachNewNode(Camera('shadow'))
     display.setCamera(camera)
