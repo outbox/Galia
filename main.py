@@ -25,6 +25,7 @@ collision_mask = BitMask32(0x10)
 def file_list():
   return [image_path + f for f in sorted(listdir(image_path))]
 
+  
 class App(ShowBase):
   def __init__(self):
     ShowBase.__init__(self)
@@ -48,8 +49,13 @@ class App(ShowBase):
     self.cam.setPos(cam_pos)
 
     self.create_label_texture()
+    self.picsWrapperNode = render.attachNewNode("PicsWrapper")
+    self.picsNode = self.picsWrapperNode.attachNewNode("Pics")
+    self.picsWrapperNode.setShader(load_shader("motion-blur"))
+    self.picsWrapperNode.setShaderInput("halfScreenSize", base.win.getXSize(), base.win.getYSize())
+    #self.picsNode.detachNode()
+    
 
-    self.picsNode = render.attachNewNode("Pics")
 
     self.create_wall()
     self.create_floor()
@@ -111,6 +117,8 @@ class App(ShowBase):
     pic.setTransparency(TransparencyAttrib.MAlpha, 1)
     pic.setTexture(texture)
     pic.setCollideMask(collision_mask)
+    pic.setPrevTransform(pic.getTransform())
+    pic.setShaderInput("old", pic.getPrevTransform().getMat())
     return pic
 
   def look_for_new_file(self):
@@ -125,6 +133,12 @@ class App(ShowBase):
         break
 
   def update(self, task):
+    self.picsWrapperNode.setShaderInput("halfScreenSize", base.win.getXSize()/2.0, base.win.getYSize()/2.0)
+    for pic in self.picsNode.getChildren():
+      node = NodePath("temp_transform_node")
+      node.setTransform(pic.getPrevTransform())
+      pic.setShaderInput("old", node)
+      pic.setPrevTransform(pic.getTransform())
     self.nui.update()
     self.label_texture.setRamMipmapPointerFromInt(self.nui.label_map, 0, 640*480*4)
     
@@ -182,6 +196,7 @@ class App(ShowBase):
     base.taskMgr.remove(name)
     interpolate(name, pic.setPos, cubic_interpolator(pic.getPos(), pos, Vec3()), time)
     interpolate(name, pic.setScale, cubic_interpolator(pic.getScale(), scale, Vec3(0,0,0)), time)
+    
 
   # Move each picture to its default position based on the current selection
   def rearrange_pics(self, base_time_on_distance = False):
