@@ -24,7 +24,8 @@ from direct.filter.FilterManager import FilterManager
 collision_mask = BitMask32(0x10)
 
 def file_list():
-  return [image_path + f for f in sorted(listdir(image_path))]
+  list = [image_path + f for f in sorted(listdir(image_path))]
+  return list if len(list) <= max_pics else list[len(list)-max_pics:]
 
 motion_blur_enabled = False
 class App(ShowBase):
@@ -42,6 +43,10 @@ class App(ShowBase):
     self.nui = Nui()
     self.nui.smooth_factor = 0.9
     
+    if overscan:
+      dimensions = VBase4(0.035, 0.965, 0.035, 0.965)
+      self.cam.node().getDisplayRegion(0).setDimensions(dimensions)
+      self.cam2d.node().getDisplayRegion(0).setDimensions(dimensions)
     self.camLens.setFov(90)
     self.camLens.setNear(0.01)
     self.camLens.setFar(2)
@@ -134,6 +139,11 @@ class App(ShowBase):
     pic.setCollideMask(collision_mask)
     pic.setPrevTransform(pic.getTransform())
     pic.setShaderInput("old", pic.getPrevTransform().getMat())
+
+    while self.picsNode.getNumChildren() > max_pics and self.selection > 0:
+      self.picsNode.getChildren()[0].remove()
+      self.selection -= 1
+
     return pic
 
   def look_for_new_file(self):
