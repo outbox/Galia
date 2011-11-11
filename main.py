@@ -26,7 +26,7 @@ collision_mask = BitMask32(0x10)
 def file_list():
   return [image_path + f for f in sorted(listdir(image_path))]
 
-motion_blur_enabled = True
+motion_blur_enabled = False
 class App(ShowBase):
   def __init__(self):
     ShowBase.__init__(self)
@@ -52,7 +52,7 @@ class App(ShowBase):
     self.create_label_texture()
     self.picsNode = render.attachNewNode("Pics")
     
-    if motion_blur_enabled and True:
+    if motion_blur_enabled:
       mblur_buffer = base.win.makeTextureBuffer("motion blur velocities", 512, 512)
       mblur_buffer.setClearColor(Vec4(0,0,0,0))
       mblur_texture = mblur_buffer.getTexture()
