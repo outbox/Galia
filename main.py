@@ -27,11 +27,10 @@ def file_list():
   list = [image_path + f for f in sorted(listdir(image_path))]
   return list if len(list) <= max_pics else list[len(list)-max_pics:]
 
-motion_blur_enabled = False
+motion_blur_enabled = True
 class App(ShowBase):
   def __init__(self):
     ShowBase.__init__(self)
-
     base.disableMouse()
 
     props = WindowProperties()
@@ -54,33 +53,34 @@ class App(ShowBase):
     cam_pos.z = -cam_pos.y * tan(vfov()/2) * (1 - floor_ratio*2)
     self.cam.setPos(cam_pos)
 
-    self.create_label_texture()
-    self.picsNode = render.attachNewNode("Pics")
+    self.create_main_scene()
     
-    if motion_blur_enabled:
-      mblur_buffer = base.win.makeTextureBuffer("motion blur velocities", 512, 512)
-      mblur_buffer.setClearColor(Vec4(0,0,0,0))
-      mblur_texture = mblur_buffer.getTexture()
-      mblur_buffer.setSort(-100)
-      mblur_camera = base.makeCamera(mblur_buffer)
-      mblur_camera.setTransform(self.cam.getTransform())
-      mblur_camera.node().setScene(self.picsNode)
-      mblur_camera.node().setLens(self.camLens)
-      tempnode = NodePath(PandaNode("temp node"))
-      tempnode.setShader(load_shader("velocities"))
-      mblur_camera.node().setInitialState(tempnode.getState())
-      
-      manager = FilterManager(base.win, base.cam)
-      tex = Texture()
-      quad = manager.renderSceneInto(colortex=tex)
-      quad.setShader(load_shader("motion-blur"))
-      quad.setShaderInput("scene", tex)
-      quad.setShaderInput("velocities", mblur_texture)
+    self.create_label_texture()
+    self.picsNode = self.scene.attachNewNode("Pics")
     
     self.create_wall()
     self.create_floor()
     self.create_url_overlay()
 
+    if motion_blur_enabled:
+    
+      dr = base.win.makeDisplayRegion()
+      dr.setClearDepthActive(True)
+      dr.setSort(20)
+      cam = NodePath(Camera("motion blur camera", lens=base.cam.node().getLens()))
+      cam.reparentTo(base.cam)
+      cam.node().setScene(self.picsNode)
+      tempnode = NodePath(PandaNode("temp node"))
+      tempnode.setShader(load_shader("motion-blur-1-pass"))
+      tempnode.setShaderInput("scene", self.scene_quad.getTexture())
+      cam.node().setInitialState(tempnode.getState())
+      dr.setCamera(cam)
+      
+      
+      """quad.setShader(load_shader("motion-blur"))
+      quad.setShaderInput("scene", self.scene_quad)
+      quad.setShaderInput("velocities", mblur_texture)"""
+    
     self.loaded_files = Set()
     
     before = clock()
@@ -104,7 +104,7 @@ class App(ShowBase):
     pickerNode.setFromCollideMask(collision_mask)
     self.cursor_ray = CollisionRay(self.cam.getPos(), Vec3.unitZ())
     pickerNode.addSolid(self.cursor_ray)
-    pickerNP = render.attachNewNode(pickerNode)
+    pickerNP = self.scene.attachNewNode(pickerNode)
     self.collision_handler = CollisionHandlerEvent()
     self.collision_handler.addInPattern('%fn-into-%in')
     self.collision_handler.addAgainPattern('%fn-again-%in')
@@ -120,7 +120,20 @@ class App(ShowBase):
     self.last_look_for_new_file = 0
 
     self.thumbnail_layout = None
-
+  
+  def create_main_scene(self):
+    self.scene = NodePath(PandaNode("main scene"))
+    buffer = self.scene_buffer = base.win.makeTextureBuffer("main scene buffer", 0, 0)
+    buffer.setSort(-1)
+    buffer.setClearColor(Vec4(0,0,0,1))
+    
+    scene_camera=base.makeCamera(buffer, lens=base.cam.node().getLens())
+    scene_camera.node().setScene(self.scene)
+    scene_camera.node().setTransform(self.cam.node().getTransform())
+    
+    self.scene_quad = buffer.getTextureCard()
+    self.scene_quad.reparentTo(render2d)
+    
   def load_file(self, file):
     self.loaded_files.add(file)
     try:
@@ -290,11 +303,11 @@ class App(ShowBase):
   def create_wall(self):
     maker = CardMaker('wall')
     maker.setFrame(-1, 1, 0, self.wall_top)
-    wall = render.attachNewNode(maker.generate())
+    wall = self.scene.attachNewNode(maker.generate())
 
     buffer = base.win.makeTextureBuffer('shadow', 512, 512)
     buffer.setClearColor(VBase4(0, 0, 0, 0))
-    buffer.setSort(-1)
+    buffer.setSort(-6)
     display = buffer.makeDisplayRegion()
     camera = base.cam.attachNewNode(Camera('shadow'))
     display.setCamera(camera)
@@ -302,8 +315,8 @@ class App(ShowBase):
     camera.node().setScene(self.picsNode)
     camera.setPos(-0.002, 0, 0.002)
 
-    blur_x = make_filter_buffer(buffer, 'blur-x')
-    blur = make_filter_buffer(blur_x, 'blur-y')
+    blur_x = make_filter_buffer(buffer, 'blur-x',-5)
+    blur = make_filter_buffer(blur_x, 'blur-y',-4)
 
     wall.setShaderInput('shadow', blur.getTexture())
 
@@ -323,8 +336,9 @@ class App(ShowBase):
 
     buffer = base.win.makeTextureBuffer(name, 512, 512)
     buffer.setClearColor(VBase4(0, 0, 0, 0))
+    buffer.setSort(-6)
     display = buffer.makeDisplayRegion()
-    camera = render.attachNewNode(Camera(name))
+    camera = self.scene.attachNewNode(Camera(name))
     display.setCamera(camera)
 
     camera.node().setInitialState(RenderState.make(CullFaceAttrib.makeReverse()))
@@ -333,11 +347,11 @@ class App(ShowBase):
     camera.setMat(base.cam.getMat() * symmetry)
     camera.node().setScene(self.picsNode)
 
-    buffer = blur_buffer(buffer)
+    buffer = blur_buffer(buffer, -5)
 
     maker = CardMaker(name)
     maker.setFrame(-1, 1, -1, 0)
-    self.floor = render.attachNewNode(maker.generate())
+    self.floor = self.scene.attachNewNode(maker.generate())
     self.floor.setShader(load_shader('floor'))
     self.floor.setShaderInput('reflection_tex', buffer.getTexture())
     self.floor.setShaderInput('diffuse_tex', loader.loadTexture('resources/floor.jpg'))

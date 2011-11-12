@@ -58,9 +58,10 @@ def cubic_interpolate_pos(name, node, target, speed=0, time=0.5):
 def vfov():
   return radians(base.camLens.getVfov())
 
-def make_filter_buffer(srcbuffer, shader):
+def make_filter_buffer(srcbuffer, shader, sort=0):
     blurBuffer=base.win.makeTextureBuffer('filter buffer', srcbuffer.getXSize(), srcbuffer.getYSize())
     blurBuffer.setClearColor(Vec4(0,0,0,0))
+    blurBuffer.setSort(sort)
     blurCamera=base.makeCamera2d(blurBuffer)
     card = srcbuffer.getTextureCard()
     card.setShaderInput('t', card.getTexture())
@@ -68,9 +69,9 @@ def make_filter_buffer(srcbuffer, shader):
     blurCamera.node().setScene(card)
     return blurBuffer
 
-def blur_buffer(buffer):
-  blur_x = make_filter_buffer(buffer, 'blur-x')
-  return make_filter_buffer(blur_x, 'blur-y')
+def blur_buffer(buffer, sort=-1):
+  blur_x = make_filter_buffer(buffer, 'blur-x', sort)
+  return make_filter_buffer(blur_x, 'blur-y', sort + 1)
   
 def make_fbo(auxrgba=0):
     winprops = WindowProperties()

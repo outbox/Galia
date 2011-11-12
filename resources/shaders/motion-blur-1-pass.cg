@@ -1,0 +1,52 @@
+//Cg
+//
+//Cg profile arbvp1 arbfp1
+
+void vshader(float4 vtx_position : POSITION, 
+             out float4 l_position : POSITION,
+             out float2 l_scenec: TEXCOORD0,
+             out float2 l_vel : TEXCOORD1,
+             uniform float4x4 trans_old_to_clip,
+             uniform float4x4 trans_old_to_view,
+             uniform float4x4 trans_model_to_clip,
+             uniform float4x4 trans_model_to_view)
+{
+  l_position=mul(trans_model_to_clip, vtx_position);
+  float4 old_p = mul(trans_old_to_clip, vtx_position);
+  float4 p_view = mul(trans_model_to_view, vtx_position);
+  float4 old_p_view = mul(trans_old_to_view, vtx_position);
+  float3 vel_view = (p_view - old_p_view).xyz;
+  
+  l_vel = (l_position.xyz/l_position.w - old_p.xyz/old_p.w).xy;
+  //l_vel = trans_model_to_view[2].xyz;
+  //l_vel = trans_old_to_view[2].xyz;
+  //l_vel = mat_modelview[2].xyz;
+  //  Check if we have to stretch the image using
+  //  the image vertices as vectors pointing outwards.
+  // Those will tell us if the velocity will enlarge
+  // the card along this vertex or shrink it
+  float flag = dot(vtx_position.xz, l_vel) > 0.0;
+  l_position = flag ? l_position : old_p;
+  l_scenec = (l_position.xy/l_position.w + 1.0)/2.0;
+}
+
+
+void fshader(uniform sampler2D scene,
+             float2 l_vel : TEXCOORD1,
+             float2 l_scenec : TEXCOORD0,
+             out float4 o_color : COLOR)
+{
+  // sample scene texture along direction of motion
+  l_vel *= 1.0;
+  const float samples = 8;
+  const float w = 1.0 / samples;    // sample weight
+  o_color = 0; // accumulator
+  float i;
+  for(i=0; i<samples; i+=1) {
+    float t = i / (samples-1);
+    o_color = o_color + tex2D(scene, l_scenec + l_vel*t) * w;
+  }
+  //o_color = tex2D(scene, l_scenec);
+  //o_color = 1.0;
+  //o_color = float4(l_vel, 0.0, 1.0);
+}
