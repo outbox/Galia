@@ -1,0 +1,32 @@
+//Cg
+//
+//Cg profile arbvp1 arbfp1
+
+void vshader(float4 vtx_position : POSITION, 
+             float2 vtx_texcoord0 : TEXCOORD0,
+             out float4 l_position : POSITION,
+             out float2 l_texcoord0 : TEXCOORD0,
+             uniform float4x4 trans_model_to_clip)
+{
+  l_position=mul(trans_model_to_clip, vtx_position);
+  l_texcoord0=vtx_texcoord0;
+}
+
+
+void fshader(uniform sampler2D scene,
+             uniform sampler2D velocities,
+             float2 l_texcoord0 : TEXCOORD0,
+             out float4 o_color : COLOR)
+{
+  // sample scene texture along direction of motion
+  float2 l_vel = tex2D(velocities, l_texcoord0).xy;
+  const float samples = 8;
+  const float w = 1.0 / samples;    // sample weight
+  o_color = 0; // accumulator
+  float i;
+  for(i=0; i<samples; i+=1) {
+    float t = i / (samples-1);
+    o_color = o_color + tex2D(scene, l_texcoord0 + l_vel*t) * w;
+  }
+  //o_color = float4(l_vel, 0.0, 1.0) + tex2D(scene, l_texcoord0);
+}
