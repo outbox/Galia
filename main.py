@@ -94,7 +94,7 @@ class App(ShowBase):
     self.cursor = Cursor(self)
     self.cursor_user = None
 
-    base.cTrav = CollisionTraverser('CollisionTraverser')    
+    self.collision_traverser = CollisionTraverser('CollisionTraverser')    
     pickerNode = CollisionNode('cursor')
     pickerNode.setFromCollideMask(collision_mask)
     self.cursor_ray = CollisionRay(self.cam.getPos(), Vec3.unitZ())
@@ -104,7 +104,7 @@ class App(ShowBase):
     self.collision_handler.addInPattern('%fn-into-%in')
     self.collision_handler.addAgainPattern('%fn-again-%in')
     self.collision_handler.addOutPattern('%fn-out-%in')
-    base.cTrav.addCollider(pickerNP, self.collision_handler)
+    self.collision_traverser.addCollider(pickerNP, self.collision_handler)
 
     self.update_task = PythonTask(self.update, 'UpdateTask')
     self.taskMgr.add(self.update_task)
@@ -166,6 +166,7 @@ class App(ShowBase):
         break
 
   def update(self, task):
+    self.collision_traverser.traverse(self.scene)
     for pic in self.picsNode.getChildren():
       node = NodePath("temp_transform_node")
       node.setTransform(pic.getPrevTransform())
