@@ -16,6 +16,7 @@ void fshader(
   uniform sampler2D diffuse_tex,
   uniform sampler2D reflection_tex,
   uniform sampler2D shadow_tex,
+  uniform sampler2D normal_map,
   float4 l_texcoord0 : TEXCOORD0,
   float4 l_texcoord1 : TEXCOORD1,
   float4 l_texcoord2 : TEXCOORD2,
@@ -23,7 +24,10 @@ void fshader(
 {
   l_texcoord1 /= l_texcoord1.w;
   float2 coord = (l_texcoord1.xy + float2(1)) * .5;
-  float4 reflection = tex2D(reflection_tex, coord);
+  float4 normal = tex2D(normal_map, l_texcoord0.xy) * 2 - 1;
+  //normal = float4(0);
+  
+  float4 reflection = tex2D(reflection_tex, coord + normal.xy*0.01);
   float ref_factor = clamp(0.4+l_texcoord2.z*0.7, 0, 1)*reflection.a;
   float4 diffuse = tex2D(diffuse_tex, l_texcoord0.xy);
   float2 shadow_coord = float2(l_texcoord0.x, 1-l_texcoord0.y);

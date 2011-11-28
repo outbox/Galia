@@ -37,7 +37,7 @@ void fshader(uniform sampler2D scene,
              out float4 o_color : COLOR)
 {
   // sample scene texture along direction of motion
-  l_vel *= 0.5;
+  l_vel *= 0.2;
   const float samples = 8;
   const float w = 1.0 / samples;    // sample weight
   o_color = 0; // accumulator

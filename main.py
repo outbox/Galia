@@ -351,6 +351,7 @@ class App(ShowBase):
     self.floor.setShader(load_shader('floor'))
     self.floor.setShaderInput('reflection_tex', buffer.getTexture())
     self.floor.setShaderInput('diffuse_tex', loader.loadTexture('resources/floor.jpg'))
+    self.floor.setShaderInput('normal_map', loader.loadTexture('resources/floor_NRM.jpg'))
     self.floor.setShaderInput('shadow_tex', self.blurred_label_texture)
     self.floor.setMat(Mat4.rotateMat(-90, VBase3.unitX()) * Mat4.translateMat(0, 0, z))
 
