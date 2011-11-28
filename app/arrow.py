@@ -10,7 +10,7 @@ class Arrow(object):
   trigger = (0.24, 0.49)
   speed = (0.49, 1)
 
-  def __init__(self, user, side):
+  def __init__(self, app, user, side):
     self.user = user
     self.side = side
 
@@ -18,7 +18,7 @@ class Arrow(object):
     width = 0.15
     height = width / 2
     maker.setFrame(0, width, -height/2, height/2)
-    self.node = render.attachNewNode(maker.generate())
+    self.node = app.scene.attachNewNode(maker.generate())
     self.node.setTexture(loader.loadTexture('resources/arrow.png'))
     self.node.setTransparency(TransparencyAttrib.MAlpha, 1)
 

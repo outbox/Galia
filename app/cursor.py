@@ -25,7 +25,7 @@ class Cursor(DirectObject):
     self.node.setTexture(self.texture_right)
     self.node.setTransparency(TransparencyAttrib.MAlpha, 1)
     self.node.setTwoSided(True)
-    self.node.reparentTo(app.render)
+    self.node.reparentTo(app.scene)
     self.node.hide()
     self.node.setColor(1, 0, 0, 1)
 

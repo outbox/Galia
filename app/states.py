@@ -33,14 +33,15 @@ class State(DirectObject):
       self.tasks.append(self.timer_task)
 
 class UserState(State):
-  def __init__(self, user):
+  def __init__(self, app, user):
+    self.app = app
     State.__init__(self)
     self.user = user
     self.accept('hand-move', self.hand_move)
     def lost_user(u):
       if u == user: 
         self.lost_user()
-        self.next_state(Start())
+        self.next_state(Start(self.app))
     self.accept('lost-user', lost_user)
 
   def hand_move(self, hand):
@@ -63,8 +64,8 @@ class UserState(State):
 # State classes
 
 class Start(UserState):
-  def __init__(self):
-    UserState.__init__(self, None)
+  def __init__(self, app):
+    UserState.__init__(self, app, None)
     self.accept('space', self.thumbnails)
     self.timer(automatic_slide_interval, self.timeout)
     self.arrows = {}
@@ -82,10 +83,10 @@ class Start(UserState):
   
   def thumbnails(self):
     if not base.win.isFullscreen():
-      self.next_state(Thumbnails(999))
+      self.next_state(Thumbnails(self.app, 999))
 
   def hand_in(self, hand):
-    self.next_state(Slide(hand))
+    self.next_state(Slide(self.app, hand))
 
   def hand_move(self, hand):
     arrow = self.arrows.get(hand.user_side, None)
@@ -93,7 +94,7 @@ class Start(UserState):
     pos = hand.positions[-1].x * hand.side_sign
     if pos > start:
       if not arrow:
-        self.arrows[hand.user_side] = arrow = Arrow(hand.user, hand.side)
+        self.arrows[hand.user_side] = arrow = Arrow(self.app, hand.user, hand.side)
       arrow.set_time_at_hint((pos - start) / (hand_trigger - start))
       arrow.update(base.nui.users)
     elif arrow:
@@ -108,8 +109,8 @@ class Start(UserState):
       del self.arrows[hand.user_side]
 
 class Slide(UserState):
-  def __init__(self, hand, time=max_slide_wait, arrow=None):
-    UserState.__init__(self, hand.user)
+  def __init__(self, app, hand, time=max_slide_wait, arrow=None):
+    UserState.__init__(self, app, hand.user)
     self.hand = hand
     self.start_time = clock()
     self.time = time
@@ -118,7 +119,7 @@ class Slide(UserState):
 
     self.arrow = arrow
     if not self.arrow:
-      self.arrow = Arrow(hand.user, hand.side)
+      self.arrow = Arrow(self.app, hand.user, hand.side)
       self.arrow.play_trigger()
     self.arrow.update(base.nui.users)
 
@@ -139,22 +140,22 @@ class Slide(UserState):
   def hand_in(self, hand):
     if hand.side != self.hand.side:
       self.arrow.destroy()
-      self.next_state(Thumbnails(self.hand.user))
+      self.next_state(Thumbnails(self.app, self.hand.user))
 
   def hand_out(self, hand):
     if hand.side == self.hand.side:
       self.arrow.destroy()
-      self.next_state(Start())
+      self.next_state(Start(self.app))
 
   def lost_user(self):
     self.arrow.destroy()
 
   def timeout(self):
-    self.next_state(Slide(self.hand, self.time, self.arrow))
+    self.next_state(Slide(self.app, self.hand, self.time, self.arrow))
   
 class Thumbnails(UserState):
-  def __init__(self, user, reflow = True):
-    UserState.__init__(self, user)
+  def __init__(self, app, user, reflow = True):
+    UserState.__init__(self, app, user)
     base.arrange_thumbnails(user, reflow)
     
     self.accept('cursor-into-pic', self.cursor_into_pic)
@@ -165,7 +166,7 @@ class Thumbnails(UserState):
   def cursor_into_pic(self, entry):
     pic = entry.getIntoNodePath()
     if base.taskMgr.hasTaskNamed(str(pic.getKey())): return
-    self.next_state(ThumbnailHover(self.user, pic))
+    self.next_state(ThumbnailHover(self.app, self.user, pic))
   
   def lost_user(self):
     base.cursor.hide()
@@ -176,8 +177,8 @@ class Thumbnails(UserState):
     self.timer(4, self.timeout)
 
 class ThumbnailHover(UserState):
-  def __init__(self, user, pic):
-    UserState.__init__(self, user)
+  def __init__(self, app, user, pic):
+    UserState.__init__(self, app, user)
     self.pic = pic
     base.highlight_pic(pic)
     base.cursor.play_timer()
@@ -187,12 +188,12 @@ class ThumbnailHover(UserState):
   def cursor_out(self, entry):
     if self.pic != entry.getIntoNodePath(): return
     base.cursor.cancel_timer()
-    self.next_state(Thumbnails(self.user, reflow=False))
+    self.next_state(Thumbnails(self.app, self.user, reflow=False))
 
   def timer_end(self):
     base.select_pic(self.pic)
     base.arrange_normal()
-    self.next_state(Start())
+    self.next_state(Start(self.app))
 
   def lost_user(self):
     base.arrange_normal()

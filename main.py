@@ -75,11 +75,6 @@ class App(ShowBase):
       tempnode.setShaderInput("scene", self.scene_quad.getTexture())
       cam.node().setInitialState(tempnode.getState())
       dr.setCamera(cam)
-      
-      
-      """quad.setShader(load_shader("motion-blur"))
-      quad.setShaderInput("scene", self.scene_quad)
-      quad.setShaderInput("velocities", mblur_texture)"""
     
     self.loaded_files = Set()
     
@@ -115,7 +110,7 @@ class App(ShowBase):
     self.taskMgr.add(self.update_task)
 
     self.hand_tracker = HandTracker()
-    states.Start()
+    states.Start(self)
 
     self.last_look_for_new_file = 0
 
